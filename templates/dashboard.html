@@ -2,6 +2,16 @@
 {% block title %}Dashboard - SF6 Stats{% endblock %}
 
 {% block content %}
+<div class="mode-tabs" style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap;">
+    {% for value, label in battle_modes %}
+    <a href="/?mode={{ value }}"
+       class="btn {{ 'btn-primary' if current_mode == value else 'btn-secondary' }}"
+       style="text-decoration:none;font-size:0.85rem;padding:6px 14px;">
+        {{ label }}
+    </a>
+    {% endfor %}
+</div>
+
 <div class="summary-row">
     <div class="stat-box">
         <div class="value result-win" id="wins">{{ today.wins }}</div>
@@ -205,8 +215,10 @@ function formatDelta(val) {
     var text = val >= 0 ? '+' + val : val;
     return '<span class="' + cls + '" style="font-size:0.8rem">(' + text + ')</span>';
 }
+var currentMode = '{{ current_mode }}';
+var modeParam = currentMode !== 'all' ? '?mode=' + currentMode : '';
 function refreshStats() {
-    fetchJSON('/api/stats/today', function(data) {
+    fetchJSON('/api/stats/today' + modeParam, function(data) {
         document.getElementById('wins').textContent = data.wins;
         document.getElementById('losses').textContent = data.losses;
         document.getElementById('winrate').textContent = data.winrate + '%';
@@ -227,7 +239,7 @@ function refreshStats() {
 setInterval(refreshStats, 10000);
 
 // LP/MR chart
-fetchJSON('/api/stats/lp-history?limit=50', function(data) {
+fetchJSON('/api/stats/lp-history?limit=50' + (currentMode !== 'all' ? '&mode=' + currentMode : ''), function(data) {
     renderLpChart('lp-chart', data);
 });
 </script>

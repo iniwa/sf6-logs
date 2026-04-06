@@ -43,12 +43,14 @@ def status():
 
 @bp.route('/stats/today')
 def stats_today():
-    return jsonify(stats.get_today_stats())
+    mode = request.args.get('mode')
+    return jsonify(stats.get_today_stats(battle_type=mode))
 
 
 @bp.route('/stats/session')
 def stats_session():
-    return jsonify(stats.get_session_stats())
+    mode = request.args.get('mode')
+    return jsonify(stats.get_session_stats(battle_type=mode))
 
 
 @bp.route('/matches')
@@ -60,23 +62,27 @@ def matches():
 
 @bp.route('/stats/characters')
 def stats_characters():
-    return jsonify(stats.get_character_stats())
+    mode = request.args.get('mode')
+    return jsonify(stats.get_character_stats(battle_type=mode))
 
 
 @bp.route('/stats/matchups')
 def stats_matchups():
-    return jsonify(stats.get_matchup_stats())
+    mode = request.args.get('mode')
+    return jsonify(stats.get_matchup_stats(battle_type=mode))
 
 
 @bp.route('/stats/opponents')
 def stats_opponents():
-    return jsonify(stats.get_opponent_stats())
+    mode = request.args.get('mode')
+    return jsonify(stats.get_opponent_stats(battle_type=mode))
 
 
 @bp.route('/stats/lp-history')
 def stats_lp_history():
     limit = request.args.get('limit', 50, type=int)
-    return jsonify(stats.get_lp_mr_history(limit=limit))
+    mode = request.args.get('mode')
+    return jsonify(stats.get_lp_mr_history(limit=limit, battle_type=mode))
 
 
 @bp.route('/stream')

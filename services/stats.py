@@ -12,9 +12,9 @@ def is_master():
     return False
 
 
-def get_today_stats():
+def get_today_stats(battle_type=None):
     today_start = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
-    matches = storage.get_matches_since(today_start)
+    matches = storage.get_matches_since(today_start, battle_type=battle_type)
 
     wins = sum(1 for m in matches if m['result'] == 'win')
     losses = sum(1 for m in matches if m['result'] == 'lose')
@@ -52,13 +52,13 @@ def get_today_stats():
     }
 
 
-def get_session_stats():
+def get_session_stats(battle_type=None):
     session = storage.get_current_session()
     if not session:
-        return get_today_stats()
+        return get_today_stats(battle_type=battle_type)
 
     since = datetime.fromisoformat(session['started_at'])
-    matches = storage.get_matches_since(since)
+    matches = storage.get_matches_since(since, battle_type=battle_type)
 
     wins = sum(1 for m in matches if m['result'] == 'win')
     losses = sum(1 for m in matches if m['result'] == 'lose')
@@ -108,8 +108,8 @@ def get_current_lp():
     }
 
 
-def get_recent_results(count=10):
-    matches = storage.get_matches(limit=count)
+def get_recent_results(count=10, battle_type=None):
+    matches = storage.get_matches(limit=count, battle_type=battle_type)
     return [
         {
             'result': m['result'],
@@ -147,29 +147,29 @@ def _aggregate_by(matches, key):
     return results
 
 
-def get_character_stats(since_dt=None):
+def get_character_stats(since_dt=None, battle_type=None):
     if since_dt is None:
         since_dt = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
-    matches = storage.get_matches_since(since_dt)
+    matches = storage.get_matches_since(since_dt, battle_type=battle_type)
     return _aggregate_by(matches, 'my_character')
 
 
-def get_matchup_stats(since_dt=None):
+def get_matchup_stats(since_dt=None, battle_type=None):
     if since_dt is None:
         since_dt = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
-    matches = storage.get_matches_since(since_dt)
+    matches = storage.get_matches_since(since_dt, battle_type=battle_type)
     return _aggregate_by(matches, 'opp_character')
 
 
-def get_opponent_stats(since_dt=None):
+def get_opponent_stats(since_dt=None, battle_type=None):
     if since_dt is None:
         since_dt = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
-    matches = storage.get_matches_since(since_dt)
+    matches = storage.get_matches_since(since_dt, battle_type=battle_type)
     return _aggregate_by(matches, 'opp_name')
 
 
-def get_lp_mr_history(limit=50):
-    matches = storage.get_matches(limit=limit)
+def get_lp_mr_history(limit=50, battle_type=None):
+    matches = storage.get_matches(limit=limit, battle_type=battle_type)
     matches.reverse()  # 時系列昇順
     return [
         {
