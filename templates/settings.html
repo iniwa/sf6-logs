@@ -53,7 +53,7 @@
             <input type="password" id="capcom_password" name="capcom_password"
                    placeholder="{{ '********' if config.capcom_password else 'CAPCOM ID のパスワード' }}">
             <small style="color: var(--text-dim); font-size: 0.75rem;">
-                ローカル DB に保存されます。2FA 有効の場合は自動ログインできません。
+                ローカル DB に保存されます。2FA 有効の場合は自動ログインできません（Playwright インストール時はブラウザ経由で試行します）。
             </small>
         </div>
         <div style="display: flex; gap: 8px;">

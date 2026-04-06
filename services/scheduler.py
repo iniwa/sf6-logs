@@ -1,8 +1,11 @@
+import time
 import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 
 import config as c
 from services import storage, cfn_auth, cfn_scraper
+
+_MAX_BACKOFF = 1800  # 30 minutes
 
 scheduler = BackgroundScheduler(timezone='Asia/Tokyo')
 
@@ -15,6 +18,8 @@ _status = {
     'auth_ok': None,       # None=未チェック, True=OK, False=失敗
     'auth_checked_at': None,
     'auto_login_last': None,   # 最後の自動ログイン試行結果
+    'consecutive_errors': 0,
+    'next_retry_at': None,
 }
 _status_lock = threading.Lock()
 
@@ -30,6 +35,11 @@ def _try_auto_login():
                 _status['auth_checked_at'] = c.get_now().isoformat()
             return True
         return False
+    except cfn_auth.TwoFactorRequired as e:
+        c.log(f'Auto-login blocked: {e}')
+        with _status_lock:
+            _status['auto_login_last'] = f'2FA required: {e}'
+        return False
     except Exception as e:
         c.log(f'Auto-login failed: {e}')
         with _status_lock:
@@ -38,6 +48,12 @@ def _try_auto_login():
 
 
 def _poll_job():
+    # Backoff guard: skip this invocation if we're still in backoff
+    with _status_lock:
+        next_retry = _status['next_retry_at']
+    if next_retry is not None and time.time() < next_retry:
+        return
+
     mock_mode = storage.get_config('mock_mode', 'true') == 'true'
     try:
         session = cfn_auth.get_session()
@@ -56,6 +72,9 @@ def _poll_job():
         with _status_lock:
             _status['last_fetch'] = now
             _status['last_error'] = None
+            _status['error_count'] = 0
+            _status['consecutive_errors'] = 0
+            _status['next_retry_at'] = None
             _status['matches_found'] += new_count
             if not mock_mode:
                 _status['auth_ok'] = True
@@ -66,10 +85,15 @@ def _poll_job():
 
     except Exception as e:
         error_msg = str(e)
+        interval = int(storage.get_config('poll_interval', '90'))
         with _status_lock:
             _status['last_error'] = error_msg
             _status['error_count'] += 1
+            _status['consecutive_errors'] += 1
+            delay = min(interval * (2 ** _status['consecutive_errors']), _MAX_BACKOFF)
+            _status['next_retry_at'] = time.time() + delay
         c.log(f'Poll error: {e}')
+        c.log(f'Backing off: next retry in {delay}s')
 
         # 認証エラーの場合、自動ログインを試行
         if not mock_mode and ('403' in error_msg or 'cookie' in error_msg.lower()):

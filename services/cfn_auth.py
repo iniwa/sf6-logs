@@ -7,6 +7,11 @@ from bs4 import BeautifulSoup
 import config as c
 from services import storage
 
+class TwoFactorRequired(Exception):
+    """2FA が有効なアカウントで自動ログイン不可"""
+    pass
+
+
 BUCKLER_BASE = 'https://www.streetfighter.com'
 BUCKLER_TOP = f'{BUCKLER_BASE}/6/buckler'
 AUTH0_DOMAIN = 'auth.cid.capcom.com'
@@ -101,22 +106,24 @@ def build_api_url(path, build_id=None):
 
 # --- Auto Login ---
 
-def auto_login(email=None, password=None):
-    """CAPCOM ID で自動ログインし、Cookie を取得・保存
+def is_playwright_available():
+    """Playwright がインストールされているか確認"""
+    try:
+        from playwright.sync_api import sync_playwright
+        return True
+    except ImportError:
+        return False
+
+
+def _requests_login(email, password):
+    """requests ベースの自動ログイン (従来の実装)
 
     Returns:
         True: ログイン成功
     Raises:
-        Exception: ログイン失敗時
+        TwoFactorRequired: 2FA が有効な場合
+        Exception: その他のログイン失敗
     """
-    if not email:
-        email = storage.get_config('capcom_email')
-    if not password:
-        password = storage.get_config('capcom_password')
-
-    if not email or not password:
-        raise Exception('CAPCOM ID credentials not configured')
-
     session = requests.Session()
     session.headers.update({
         'User-Agent': USER_AGENT,
@@ -183,6 +190,14 @@ def auto_login(email=None, password=None):
         raise Exception('Login failed - invalid email or password')
     login_resp.raise_for_status()
 
+    # 2FA/MFA 検出
+    resp_text = login_resp.text
+    if '"mfa_required"' in resp_text or '"multifactor"' in resp_text:
+        raise TwoFactorRequired(
+            '2FA/MFA is enabled on this CAPCOM ID. '
+            'Automatic login is not supported with 2FA.'
+        )
+
     # Step 3: コールバック実行（HTML フォームの hidden fields を送信）
     c.log('Auto-login: executing callback...')
     soup = BeautifulSoup(login_resp.text, 'html.parser')
@@ -225,6 +240,108 @@ def auto_login(email=None, password=None):
 
     c.log(f'Auto-login successful ({len(buckler_cookies)} cookies)')
     return True
+
+
+def _playwright_login(email, password):
+    """Playwright ベースのブラウザ自動ログイン (フォールバック)
+
+    Returns:
+        True: ログイン成功
+    Raises:
+        Exception: Playwright 未インストールまたはログイン失敗
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        raise Exception(
+            'Playwright not installed. '
+            'Install with: pip install playwright && playwright install chromium'
+        )
+
+    c.log('Playwright login: launching browser...')
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(user_agent=USER_AGENT)
+        page = context.new_page()
+
+        try:
+            # Navigate to Buckler login
+            page.goto(
+                f'{BUCKLER_BASE}/6/buckler/auth/logineq?redirect_url=/?status=login',
+                timeout=30000,
+            )
+
+            # Wait for Auth0 login form
+            page.wait_for_selector(
+                'input[name="email"], input[name="username"]',
+                timeout=15000,
+            )
+
+            # Fill credentials
+            email_input = (
+                page.query_selector('input[name="email"]')
+                or page.query_selector('input[name="username"]')
+            )
+            email_input.fill(email)
+            page.fill('input[name="password"]', password)
+
+            # Submit
+            page.click('button[type="submit"]')
+
+            # Wait for redirect back to Buckler
+            page.wait_for_url('**/streetfighter.com/**', timeout=30000)
+
+            # Extract cookies
+            cookies = context.cookies()
+            buckler_cookies = [
+                f"{ck['name']}={ck['value']}"
+                for ck in cookies
+                if 'streetfighter.com' in ck.get('domain', '')
+            ]
+
+            if not buckler_cookies:
+                raise Exception(
+                    'Playwright: No Buckler cookies obtained after login'
+                )
+
+            cookie_string = '; '.join(buckler_cookies)
+            save_cookie(cookie_string)
+            c.log(f'Playwright login successful ({len(buckler_cookies)} cookies)')
+            return True
+
+        finally:
+            browser.close()
+
+
+def auto_login(email=None, password=None):
+    """CAPCOM ID で自動ログインし、Cookie を取得・保存
+
+    requests ベースのログインを試み、失敗時は Playwright フォールバックを使用。
+    2FA 有効アカウントや認証情報エラーではフォールバックしない。
+
+    Returns:
+        True: ログイン成功
+    Raises:
+        TwoFactorRequired: 2FA が有効な場合
+        Exception: ログイン失敗時
+    """
+    if not email:
+        email = storage.get_config('capcom_email')
+    if not password:
+        password = storage.get_config('capcom_password')
+
+    if not email or not password:
+        raise Exception('CAPCOM ID credentials not configured')
+
+    try:
+        return _requests_login(email, password)
+    except TwoFactorRequired:
+        raise  # 2FA はフォールバックしない
+    except Exception as e:
+        if 'invalid email or password' in str(e).lower():
+            raise  # 認証情報エラーはフォールバックしない
+        c.log(f'Requests login failed: {e}, trying Playwright fallback...')
+        return _playwright_login(email, password)
 
 
 def refresh_cookie():

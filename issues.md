@@ -17,11 +17,11 @@
 
 - [ ] 自動ログイン機能の実機テスト（ラズパイ Docker 環境）
 - [ ] Cookie 有効期限の実測（どの程度で失効するか確認）
-- [ ] 2FA 有効ユーザーへの対応（現在は 2FA 無効のみ対応）
-- [ ] Auth0 側の仕様変更・CAPTCHA 追加時の対策（Playwright fallback 検討）
+- [x] 2FA 有効ユーザーへの対応（TwoFactorRequired 例外で検出・通知）
+- [x] Auth0 側の仕様変更・CAPTCHA 追加時の対策（Playwright fallback 実装済み）
 
 ## インフラ / 運用
 
-- [ ] Playwright fallback（ARM64 対応確認済み、必要時に導入）
-- [ ] エラー時の exponential backoff 実装
-- [ ] Cloudflare Tunnel による外部公開設定（必要に応じて）
+- [x] Playwright fallback（オプション依存、requests 失敗時に自動フォールバック）
+- [x] エラー時の exponential backoff 実装（最大30分、成功時リセット）
+- [x] Cloudflare Tunnel による外部公開設定（必要に応じて） (docs/cloudflare-tunnel.md に手順記載)
