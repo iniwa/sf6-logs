@@ -1,12 +1,6 @@
 {% extends "overlay/base_overlay.html" %}
 {% block content %}
 <div class="overlay">
-    <div class="record">
-        <span class="wins" id="wins">W{{ today.wins }}</span>
-        -
-        <span class="losses" id="losses">L{{ today.losses }}</span>
-        <span class="winrate" id="winrate">({{ today.winrate }}%)</span>
-    </div>
     <div class="lp-row">
         {% if today.lp is not none %}
         LP: <span class="value" id="lp">{{ today.lp }}</span>
@@ -17,18 +11,10 @@
         <span id="mr-delta" class="{{ 'delta-pos' if today.mr_delta and today.mr_delta > 0 else 'delta-neg' if today.mr_delta and today.mr_delta < 0 else '' }}">{% if today.mr_delta is not none %}({{ '+%d' % today.mr_delta if today.mr_delta >= 0 else today.mr_delta }}){% endif %}</span>
         {% endif %}
     </div>
-    <div class="history" id="history">
-        {% for r in recent %}
-        <span class="dot {{ 'dot-win' if r.result == 'win' else 'dot-lose' }}"></span>
-        {% endfor %}
-    </div>
 </div>
 {% endblock %}
 {% block scripts %}
 function updateStats(d) {
-    document.getElementById('wins').textContent = 'W' + d.wins;
-    document.getElementById('losses').textContent = 'L' + d.losses;
-    document.getElementById('winrate').textContent = '(' + d.winrate + '%)';
     var lpEl = document.getElementById('lp');
     var mrEl = document.getElementById('mr');
     if (lpEl && d.lp !== null) lpEl.textContent = d.lp;
@@ -38,23 +24,7 @@ function updateStats(d) {
     if (lpD) { lpD.textContent = d.lp_delta !== null ? '(' + (d.lp_delta >= 0 ? '+' : '') + d.lp_delta + ')' : ''; lpD.className = d.lp_delta > 0 ? 'delta-pos' : d.lp_delta < 0 ? 'delta-neg' : ''; }
     if (mrD) { mrD.textContent = d.mr_delta !== null ? '(' + (d.mr_delta >= 0 ? '+' : '') + d.mr_delta + ')' : ''; mrD.className = d.mr_delta > 0 ? 'delta-pos' : d.mr_delta < 0 ? 'delta-neg' : ''; }
 }
-
-function refreshHistory() {
-    fetch('/api/matches?limit=10')
-        .then(function(r) { return r.json(); })
-        .then(function(matches) {
-            var hist = document.getElementById('history');
-            hist.innerHTML = '';
-            matches.forEach(function(m) {
-                var dot = document.createElement('span');
-                dot.className = 'dot ' + (m.result === 'win' ? 'dot-win' : 'dot-lose');
-                hist.appendChild(dot);
-            });
-        });
-}
-
 function refresh() {
     fetch('/api/stats/today').then(function(r) { return r.json(); }).then(updateStats);
-    refreshHistory();
 }
 {% endblock %}

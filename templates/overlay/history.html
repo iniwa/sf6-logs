@@ -1,0 +1,26 @@
+{% extends "overlay/base_overlay.html" %}
+{% block content %}
+<div class="overlay">
+    <div class="history" id="history">
+        {% for r in recent %}
+        <span class="dot {{ 'dot-win' if r.result == 'win' else 'dot-lose' }}"></span>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+function refreshHistory() {
+    fetch('/api/matches?limit=10')
+        .then(function(r) { return r.json(); })
+        .then(function(matches) {
+            var hist = document.getElementById('history');
+            hist.innerHTML = '';
+            matches.forEach(function(m) {
+                var dot = document.createElement('span');
+                dot.className = 'dot ' + (m.result === 'win' ? 'dot-win' : 'dot-lose');
+                hist.appendChild(dot);
+            });
+        });
+}
+function refresh() { refreshHistory(); }
+{% endblock %}

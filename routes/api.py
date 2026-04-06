@@ -1,9 +1,35 @@
-from flask import Blueprint, jsonify, request
+import json
+import queue
+import threading
+
+from flask import Blueprint, jsonify, request, Response
 
 from services import storage, stats, cfn_auth
 from services import scheduler as sched
 
 bp = Blueprint('api', __name__, url_prefix='/api')
+
+# --- SSE ---
+_sse_clients = []
+_sse_lock = threading.Lock()
+
+
+def _notify_clients(match_dict):
+    today = stats.get_today_stats()
+    data = json.dumps(today, ensure_ascii=False)
+    msg = f"event: stats\ndata: {data}\n\n"
+    with _sse_lock:
+        dead = []
+        for q in _sse_clients:
+            try:
+                q.put_nowait(msg)
+            except queue.Full:
+                dead.append(q)
+        for q in dead:
+            _sse_clients.remove(q)
+
+
+storage.register_post_insert_hook(_notify_clients)
 
 
 @bp.route('/status')
@@ -30,3 +56,56 @@ def matches():
     limit = request.args.get('limit', 20, type=int)
     battle_type = request.args.get('type')
     return jsonify(storage.get_matches(limit=limit, battle_type=battle_type))
+
+
+@bp.route('/stats/characters')
+def stats_characters():
+    return jsonify(stats.get_character_stats())
+
+
+@bp.route('/stats/matchups')
+def stats_matchups():
+    return jsonify(stats.get_matchup_stats())
+
+
+@bp.route('/stats/opponents')
+def stats_opponents():
+    return jsonify(stats.get_opponent_stats())
+
+
+@bp.route('/stats/lp-history')
+def stats_lp_history():
+    limit = request.args.get('limit', 50, type=int)
+    return jsonify(stats.get_lp_mr_history(limit=limit))
+
+
+@bp.route('/stream')
+def stream():
+    q = queue.Queue(maxsize=50)
+    with _sse_lock:
+        _sse_clients.append(q)
+
+    def generate():
+        try:
+            # 接続時に現在の stats を送信
+            today = stats.get_today_stats()
+            yield f"event: stats\ndata: {json.dumps(today, ensure_ascii=False)}\n\n"
+            while True:
+                try:
+                    msg = q.get(timeout=30)
+                    yield msg
+                except queue.Empty:
+                    yield ": keepalive\n\n"
+        finally:
+            with _sse_lock:
+                if q in _sse_clients:
+                    _sse_clients.remove(q)
+
+    return Response(
+        generate(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+        },
+    )

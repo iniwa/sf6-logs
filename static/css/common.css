@@ -176,6 +176,9 @@ input:focus, textarea:focus, select:focus {
 }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; } }
 
+/* === Collapsible === */
+table.collapsed tbody { display: none; }
+
 /* === Responsive === */
 @media (max-width: 768px) {
     .summary-row { flex-direction: column; }

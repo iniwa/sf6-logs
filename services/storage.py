@@ -4,6 +4,13 @@ import json
 import config as c
 
 
+_post_insert_hooks = []
+
+
+def register_post_insert_hook(fn):
+    _post_insert_hooks.append(fn)
+
+
 def _connect():
     os.makedirs(os.path.dirname(c.DB_PATH), exist_ok=True)
     conn = sqlite3.connect(c.DB_PATH, check_same_thread=False)
@@ -133,7 +140,14 @@ def insert_match(match_dict):
                 )
             )
             conn.commit()
-            return conn.total_changes > 0
+            inserted = conn.total_changes > 0
+            if inserted:
+                for hook in _post_insert_hooks:
+                    try:
+                        hook(match_dict)
+                    except Exception:
+                        pass
+            return inserted
         finally:
             conn.close()
 

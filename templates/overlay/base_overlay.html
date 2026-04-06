@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>SF6 Overlay</title>
+    <link rel="stylesheet" href="/static/css/overlay-themes.css">
+</head>
+<body class="theme-{{ theme }} size-{{ size }}">
+    {% block content %}{% endblock %}
+
+    <script>
+    {% block scripts %}{% endblock %}
+    </script>
+    <script src="/static/js/overlay-sse.js"></script>
+</body>
+</html>

@@ -71,6 +71,93 @@
     </p>
 </div>
 
+{% if char_stats %}
+<div class="card">
+    <h2>Character Win Rates</h2>
+    <table>
+        <thead>
+            <tr><th>Character</th><th>W</th><th>L</th><th>Win Rate</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+            {% for s in char_stats %}
+            <tr>
+                <td>{{ s.name }}</td>
+                <td class="result-win">{{ s.wins }}</td>
+                <td class="result-lose">{{ s.losses }}</td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+                            <div style="width:{{ s.winrate }}%;height:100%;background:var(--accent-green);"></div>
+                        </div>
+                        <span style="min-width:48px;text-align:right;">{{ s.winrate }}%</span>
+                    </div>
+                </td>
+                <td>{{ s.total }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if matchup_stats %}
+<div class="card">
+    <h2>Matchup Stats</h2>
+    <table>
+        <thead>
+            <tr><th>Opponent Char</th><th>W</th><th>L</th><th>Win Rate</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+            {% for s in matchup_stats %}
+            <tr>
+                <td>{{ s.name }}</td>
+                <td class="result-win">{{ s.wins }}</td>
+                <td class="result-lose">{{ s.losses }}</td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+                            <div style="width:{{ s.winrate }}%;height:100%;background:var(--accent-green);"></div>
+                        </div>
+                        <span style="min-width:48px;text-align:right;">{{ s.winrate }}%</span>
+                    </div>
+                </td>
+                <td>{{ s.total }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if opp_stats %}
+<div class="card">
+    <h2 onclick="this.parentElement.querySelector('table').classList.toggle('collapsed')" style="cursor:pointer;">
+        Opponent Stats <span style="font-size:0.8rem;color:var(--text-dim);">▼</span>
+    </h2>
+    <table class="collapsed">
+        <thead>
+            <tr><th>Player</th><th>W</th><th>L</th><th>Win Rate</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+            {% for s in opp_stats %}
+            <tr>
+                <td>{{ s.name }}</td>
+                <td class="result-win">{{ s.wins }}</td>
+                <td class="result-lose">{{ s.losses }}</td>
+                <td>{{ s.winrate }}%</td>
+                <td>{{ s.total }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="card">
+    <h2>LP / MR Trend</h2>
+    <div id="lp-chart" style="width:100%;min-height:200px;"></div>
+</div>
+
 <div class="card">
     <h2>Match History</h2>
     <table>
@@ -105,6 +192,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="/static/js/lp-chart.js"></script>
 <script>
 function formatDelta(val) {
     if (val === null || val === undefined) return '';
@@ -124,5 +212,10 @@ function refreshStats() {
     });
 }
 setInterval(refreshStats, 10000);
+
+// LP/MR chart
+fetchJSON('/api/stats/lp-history?limit=50', function(data) {
+    renderLpChart('lp-chart', data);
+});
 </script>
 {% endblock %}

@@ -107,3 +107,65 @@ def get_recent_results(count=10):
         }
         for m in matches
     ]
+
+
+def _aggregate_by(matches, key):
+    """key でグループ化して W/L/勝率を集計"""
+    buckets = {}
+    for m in matches:
+        name = m[key]
+        if name not in buckets:
+            buckets[name] = {'wins': 0, 'losses': 0}
+        if m['result'] == 'win':
+            buckets[name]['wins'] += 1
+        else:
+            buckets[name]['losses'] += 1
+
+    results = []
+    for name, b in buckets.items():
+        total = b['wins'] + b['losses']
+        results.append({
+            'name': name,
+            'wins': b['wins'],
+            'losses': b['losses'],
+            'total': total,
+            'winrate': round(b['wins'] / total * 100, 1) if total > 0 else 0.0,
+        })
+    results.sort(key=lambda x: x['total'], reverse=True)
+    return results
+
+
+def get_character_stats(since_dt=None):
+    if since_dt is None:
+        since_dt = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
+    matches = storage.get_matches_since(since_dt)
+    return _aggregate_by(matches, 'my_character')
+
+
+def get_matchup_stats(since_dt=None):
+    if since_dt is None:
+        since_dt = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
+    matches = storage.get_matches_since(since_dt)
+    return _aggregate_by(matches, 'opp_character')
+
+
+def get_opponent_stats(since_dt=None):
+    if since_dt is None:
+        since_dt = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
+    matches = storage.get_matches_since(since_dt)
+    return _aggregate_by(matches, 'opp_name')
+
+
+def get_lp_mr_history(limit=50):
+    matches = storage.get_matches(limit=limit)
+    matches.reverse()  # 時系列昇順
+    return [
+        {
+            'played_at': m['played_at'],
+            'lp_after': m.get('lp_after'),
+            'mr_after': m.get('mr_after'),
+            'result': m['result'],
+        }
+        for m in matches
+        if m.get('lp_after') is not None or m.get('mr_after') is not None
+    ]

@@ -1,0 +1,78 @@
+/* Overlay Theme System */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #fff;
+}
+
+/* --- Themes --- */
+.theme-dark {
+    --ovl-bg: rgba(0, 0, 0, 0.7);
+    --ovl-text: #fff;
+    --ovl-sub: #ccc;
+    --ovl-muted: #aaa;
+    --ovl-win: #4ecca3;
+    --ovl-lose: #e94560;
+    --ovl-radius: 8px;
+}
+
+.theme-sf6 {
+    --ovl-bg: rgba(20, 10, 40, 0.85);
+    --ovl-text: #f0f0ff;
+    --ovl-sub: #b0b0d0;
+    --ovl-muted: #8888bb;
+    --ovl-win: #00e5ff;
+    --ovl-lose: #ff3d71;
+    --ovl-radius: 4px;
+}
+
+/* --- Size --- */
+.size-small  { --ovl-scale: 0.75; }
+.size-medium { --ovl-scale: 1.0; }
+.size-large  { --ovl-scale: 1.5; }
+
+/* --- Base overlay --- */
+.overlay {
+    display: inline-flex;
+    flex-direction: column;
+    gap: calc(8px * var(--ovl-scale, 1));
+    padding: calc(12px * var(--ovl-scale, 1)) calc(16px * var(--ovl-scale, 1));
+    background: var(--ovl-bg);
+    border-radius: var(--ovl-radius);
+}
+
+.record {
+    font-size: calc(24px * var(--ovl-scale, 1));
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+.record .wins { color: var(--ovl-win); }
+.record .losses { color: var(--ovl-lose); }
+.record .winrate {
+    color: var(--ovl-muted);
+    font-size: calc(18px * var(--ovl-scale, 1));
+    margin-left: calc(8px * var(--ovl-scale, 1));
+}
+
+.lp-row {
+    font-size: calc(16px * var(--ovl-scale, 1));
+    color: var(--ovl-sub);
+}
+.lp-row .value { font-weight: 600; color: var(--ovl-text); }
+.lp-row .delta-pos { color: var(--ovl-win); font-size: calc(14px * var(--ovl-scale, 1)); }
+.lp-row .delta-neg { color: var(--ovl-lose); font-size: calc(14px * var(--ovl-scale, 1)); }
+
+.history {
+    display: flex;
+    gap: calc(4px * var(--ovl-scale, 1));
+}
+.history .dot {
+    width: calc(16px * var(--ovl-scale, 1));
+    height: calc(16px * var(--ovl-scale, 1));
+    border-radius: 50%;
+    display: inline-block;
+}
+.dot-win { background: var(--ovl-win); }
+.dot-lose { background: var(--ovl-lose); }
