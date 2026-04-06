@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Overlay Settings - SF6 Stats{% endblock %}
+
+{% block content %}
+<!-- Session Management -->
+<div class="card">
+    <h2>Session Management</h2>
+    <p style="margin-bottom: 12px; color: var(--text-dim); font-size: 0.9rem;">
+        配信セッション単位で成績をリセット。開始後のマッチのみ集計されます。
+        {% if session %}
+        <br>
+        <strong style="color: var(--accent-green);">Active:</strong>
+        {{ session.label or '(no label)' }} — started {{ session.started_at | format_datetime }}
+        {% endif %}
+    </p>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <form method="POST" action="/settings/session/start" style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" name="label" placeholder="Session label (optional)" style="width: 200px;">
+            <button type="submit" class="btn btn-success">Start Session</button>
+        </form>
+        <form method="POST" action="/settings/session/end">
+            <button type="submit" class="btn btn-secondary">End Session</button>
+        </form>
+    </div>
+</div>
+
+<!-- Overlay Builder -->
+<div class="card">
+    <h2>Overlay URL Builder</h2>
+    <p style="margin-bottom: 16px; color: var(--text-dim); font-size: 0.9rem;">
+        オプションを選択すると OBS 用の URL が自動生成されます。クリックでコピー。
+    </p>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+        <!-- Type -->
+        <div>
+            <label style="display:block;margin-bottom:6px;color:var(--text-dim);font-size:0.85rem;">Type</label>
+            <select id="ovl-type" onchange="buildUrls()">
+                <option value="/overlay">Full (W/L + LP/MR + History)</option>
+                <option value="/overlay/record">Record (W/L + WinRate)</option>
+                <option value="/overlay/lp">LP / MR Only</option>
+                <option value="/overlay/history">Match History Only</option>
+            </select>
+        </div>
+
+        <!-- Theme -->
+        <div>
+            <label style="display:block;margin-bottom:6px;color:var(--text-dim);font-size:0.85rem;">Theme</label>
+            <select id="ovl-theme" onchange="buildUrls()">
+                <option value="dark">Dark</option>
+                <option value="sf6">SF6</option>
+            </select>
+        </div>
+
+        <!-- Size -->
+        <div>
+            <label style="display:block;margin-bottom:6px;color:var(--text-dim);font-size:0.85rem;">Size</label>
+            <select id="ovl-size" onchange="buildUrls()">
+                <option value="small">Small</option>
+                <option value="medium" selected>Medium</option>
+                <option value="large">Large</option>
+            </select>
+        </div>
+
+        <!-- Mode -->
+        <div>
+            <label style="display:block;margin-bottom:6px;color:var(--text-dim);font-size:0.85rem;">Battle Mode</label>
+            <select id="ovl-mode" onchange="buildUrls()">
+                <option value="all">All</option>
+                <option value="ranked">Ranked</option>
+                <option value="casual">Casual</option>
+                <option value="battle_hub">Battle Hub</option>
+                <option value="custom">Custom</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Generated URL -->
+    <div style="margin-bottom: 16px;">
+        <label style="display:block;margin-bottom:6px;color:var(--text-dim);font-size:0.85rem;">Generated URL</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <code id="ovl-url" style="flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:0.9rem;word-break:break-all;cursor:pointer;" onclick="copyGenerated()" title="Click to copy"></code>
+            <button type="button" class="btn btn-success" onclick="copyGenerated()" style="white-space:nowrap;">Copy</button>
+        </div>
+    </div>
+</div>
+
+<!-- Live Preview -->
+<div class="card">
+    <h2>Preview</h2>
+    <p style="margin-bottom: 12px; color: var(--text-dim); font-size: 0.9rem;">
+        リアルタイムプレビュー。背景は OBS のクロマキー動作確認用です。
+    </p>
+    <div id="preview-container" style="background:repeating-conic-gradient(#333 0% 25%, #2a2a2a 0% 50%) 50%/20px 20px;border:1px solid var(--border);border-radius:4px;padding:20px;min-height:100px;display:flex;align-items:center;justify-content:center;">
+        <iframe id="ovl-preview" style="border:none;width:100%;height:150px;background:transparent;" sandbox="allow-scripts allow-same-origin"></iframe>
+    </div>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+        <label style="color:var(--text-dim);font-size:0.85rem;">Preview Height:</label>
+        <input type="range" id="preview-height" min="80" max="400" value="150" oninput="resizePreview()" style="width:200px;">
+        <span id="preview-height-label" style="color:var(--text-dim);font-size:0.85rem;">150px</span>
+    </div>
+</div>
+
+<!-- All Overlay URLs -->
+<div class="card">
+    <h2>All Overlay URLs</h2>
+    <p style="margin-bottom: 12px; color: var(--text-dim); font-size: 0.9rem;">
+        基本 URL 一覧。上の Builder でカスタマイズしたパラメータは含みません。
+    </p>
+    <table>
+        <thead><tr><th>Type</th><th>URL</th></tr></thead>
+        <tbody>
+            {% set base = request.host_url.rstrip('/') %}
+            {% set overlays = [
+                ('Full (W/L + LP/MR + History)', '/overlay'),
+                ('Record Only (W/L + WinRate)', '/overlay/record'),
+                ('LP / MR Only', '/overlay/lp'),
+                ('Match History Only', '/overlay/history'),
+            ] %}
+            {% for label, path in overlays %}
+            <tr>
+                <td>{{ label }}</td>
+                <td>
+                    <code class="overlay-url" style="cursor:pointer;padding:4px 8px;background:var(--bg);border-radius:4px;font-size:0.85rem;display:inline-block;" onclick="copyUrl(this)" title="Click to copy">{{ base }}{{ path }}</code>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var baseUrl = '{{ request.host_url.rstrip("/") }}';
+
+function buildUrls() {
+    var type = document.getElementById('ovl-type').value;
+    var theme = document.getElementById('ovl-theme').value;
+    var size = document.getElementById('ovl-size').value;
+    var mode = document.getElementById('ovl-mode').value;
+
+    var params = [];
+    if (theme !== 'dark') params.push('theme=' + theme);
+    if (size !== 'medium') params.push('size=' + size);
+    if (mode !== 'all') params.push('mode=' + mode);
+
+    var qs = params.length > 0 ? '?' + params.join('&') : '';
+    var url = baseUrl + type + qs;
+
+    document.getElementById('ovl-url').textContent = url;
+    document.getElementById('ovl-preview').src = url;
+}
+
+function copyGenerated() {
+    var url = document.getElementById('ovl-url').textContent;
+    navigator.clipboard.writeText(url).then(function() {
+        showToast('Copied!');
+    });
+}
+
+function copyUrl(el) {
+    navigator.clipboard.writeText(el.textContent.trim()).then(function() {
+        showToast('Copied!');
+    });
+}
+
+function resizePreview() {
+    var h = document.getElementById('preview-height').value;
+    document.getElementById('ovl-preview').style.height = h + 'px';
+    document.getElementById('preview-height-label').textContent = h + 'px';
+}
+
+// Init
+buildUrls();
+</script>
+{% endblock %}

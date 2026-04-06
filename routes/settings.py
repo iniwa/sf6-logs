@@ -11,6 +11,13 @@ def index():
     return render_template('settings.html', config=conf)
 
 
+@bp.route('/overlay-settings')
+def overlay_settings():
+    conf = storage.load_all_config()
+    session = storage.get_current_session()
+    return render_template('overlay_settings.html', config=conf, session=session)
+
+
 @bp.route('/settings/save_cfn', methods=['POST'])
 def save_cfn():
     cookie = request.form.get('cfn_cookie', '')
@@ -57,10 +64,10 @@ def toggle_mock():
 def session_start():
     label = request.form.get('label', '')
     storage.start_session(label or None)
-    return redirect(url_for('settings.index'))
+    return redirect(url_for('settings.overlay_settings'))
 
 
 @bp.route('/settings/session/end', methods=['POST'])
 def session_end():
     storage.end_session()
-    return redirect(url_for('settings.index'))
+    return redirect(url_for('settings.overlay_settings'))
