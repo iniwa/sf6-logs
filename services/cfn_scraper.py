@@ -157,7 +157,7 @@ def _parse_replay(replay, my_short_id):
         'lp_after': me.get('league_point'),
         'mr_before': None,
         'mr_after': me.get('master_rating'),
-        'raw_data': json.dumps(replay),
+        'raw_data': replay,
     }
 
 
