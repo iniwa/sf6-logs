@@ -11,10 +11,14 @@ def index():
     return render_template('settings.html', config=conf)
 
 
-@bp.route('/settings/save_cookie', methods=['POST'])
-def save_cookie():
+@bp.route('/settings/save_cfn', methods=['POST'])
+def save_cfn():
     cookie = request.form.get('cfn_cookie', '')
-    cfn_auth.save_cookie(cookie)
+    user_id = request.form.get('cfn_user_id', '')
+    if cookie:
+        cfn_auth.save_cookie(cookie)
+    if user_id:
+        storage.set_config('cfn_user_id', user_id.strip())
     return redirect(url_for('settings.index'))
 
 

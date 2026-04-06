@@ -1,9 +1,11 @@
+import json
 import random
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import config as c
 from services import storage
+from services.cfn_auth import get_session, get_build_id, build_api_url
 
 # SF6 キャラクターリスト
 CHARACTERS = [
@@ -16,6 +18,15 @@ CHARACTERS = [
 
 BATTLE_TYPES = ['ranked', 'casual']
 
+# replay_battle_type マッピング
+BATTLE_TYPE_MAP = {
+    0: 'casual',
+    1: 'ranked',
+    2: 'battle_hub',
+    3: 'battle_hub',
+    4: 'custom',
+}
+
 
 def fetch_battle_log(session=None):
     mock_mode = storage.get_config('mock_mode', 'true')
@@ -26,9 +37,128 @@ def fetch_battle_log(session=None):
 
 
 def _fetch_real_battle_log(session):
-    # TODO: 実際のCFNスクレイピング実装
-    c.log('Real CFN scraping not implemented yet')
-    return []
+    """Buckler's Boot Camp からバトルログを取得"""
+    short_id = storage.get_config('cfn_user_id')
+    if not short_id:
+        c.log('CFN user ID (short_id) not configured')
+        return []
+
+    if session is None:
+        session = get_session()
+
+    build_id = get_build_id(session)
+    if not build_id:
+        c.log('Failed to get BuildID — cookie may be invalid')
+        return []
+
+    url = build_api_url(f'profile/{short_id}/battlelog.json', build_id)
+    if not url:
+        return []
+
+    try:
+        resp = session.get(url, params={'page': 1}, timeout=15)
+
+        # エラーハンドリング
+        if resp.status_code == 403:
+            c.log('CFN: 403 Unauthorized — cookie expired or invalid')
+            return []
+        if resp.status_code == 404:
+            c.log(f'CFN: 404 Not Found — check short_id: {short_id}')
+            return []
+        if resp.status_code == 405 and resp.headers.get('x-amzn-waf-action'):
+            c.log('CFN: Rate limited by WAF — backing off')
+            return []
+        if resp.status_code == 503:
+            c.log('CFN: 503 Under maintenance')
+            return []
+
+        resp.raise_for_status()
+        data = resp.json()
+
+    except Exception as e:
+        c.log(f'CFN fetch error: {e}')
+        return []
+
+    return _parse_battle_log(data, short_id)
+
+
+def _parse_battle_log(data, my_short_id):
+    """API レスポンスをデータ契約の形式に変換"""
+    page_props = data.get('pageProps', {})
+    replay_list = page_props.get('replay_list') or []
+    my_short_id = int(my_short_id)
+
+    matches = []
+    for replay in replay_list:
+        try:
+            match = _parse_replay(replay, my_short_id)
+            if match:
+                matches.append(match)
+        except Exception as e:
+            replay_id = replay.get('replay_id', 'unknown')
+            c.log(f'Failed to parse replay {replay_id}: {e}')
+
+    return matches
+
+
+def _parse_replay(replay, my_short_id):
+    """個別リプレイデータをパース"""
+    p1 = replay.get('player1_info', {})
+    p2 = replay.get('player2_info', {})
+
+    # 自分がどちらのプレイヤーか判定
+    p1_sid = p1.get('player', {}).get('short_id', 0)
+    p2_sid = p2.get('player', {}).get('short_id', 0)
+
+    if int(p1_sid) == my_short_id:
+        me, opp = p1, p2
+    elif int(p2_sid) == my_short_id:
+        me, opp = p2, p1
+    else:
+        # 自分のマッチではない
+        return None
+
+    # 勝敗判定: round_results で 0 が 2 つ以上 → 敗北
+    round_results = me.get('round_results', [])
+    losses = round_results.count(0)
+    result = 'lose' if losses >= 2 else 'win'
+
+    # バトルタイプ
+    battle_type_id = replay.get('replay_battle_type', -1)
+    battle_type = BATTLE_TYPE_MAP.get(battle_type_id)
+    if not battle_type:
+        # フォールバック: API の名前フィールドから推定
+        name = (replay.get('replay_battle_type_name') or '').lower()
+        if 'ranked' in name:
+            battle_type = 'ranked'
+        elif 'casual' in name:
+            battle_type = 'casual'
+        elif 'custom' in name:
+            battle_type = 'custom'
+        else:
+            battle_type = 'other'
+
+    # タイムスタンプ (Unix → ISO 8601 JST)
+    uploaded_at = replay.get('uploaded_at', 0)
+    if uploaded_at:
+        played_at = datetime.fromtimestamp(uploaded_at, tz=c.JST).isoformat()
+    else:
+        played_at = c.get_now().isoformat()
+
+    return {
+        'replay_id': str(replay.get('replay_id', '')),
+        'played_at': played_at,
+        'battle_type': battle_type,
+        'my_character': me.get('playing_character_name', ''),
+        'opp_character': opp.get('playing_character_name', ''),
+        'opp_name': opp.get('player', {}).get('fighter_id', ''),
+        'result': result,
+        'lp_before': None,  # API は現在値のみ提供、差分は不明
+        'lp_after': me.get('league_point'),
+        'mr_before': None,
+        'mr_after': me.get('master_rating'),
+        'raw_data': json.dumps(replay),
+    }
 
 
 def _generate_mock_matches():
