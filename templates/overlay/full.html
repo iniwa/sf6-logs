@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>SF6 Overlay</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #fff;
+        }
+        .overlay {
+            display: inline-flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+        }
+        .record {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .record .wins { color: #4ecca3; }
+        .record .losses { color: #e94560; }
+        .record .winrate { color: #aaa; font-size: 18px; margin-left: 8px; }
+        .lp-row {
+            font-size: 16px;
+            color: #ccc;
+        }
+        .lp-row .value { font-weight: 600; color: #fff; }
+        .history {
+            display: flex;
+            gap: 4px;
+        }
+        .history .dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .dot-win { background: #4ecca3; }
+        .dot-lose { background: #e94560; }
+    </style>
+</head>
+<body>
+    <div class="overlay">
+        <div class="record">
+            <span class="wins" id="wins">W{{ today.wins }}</span>
+            -
+            <span class="losses" id="losses">L{{ today.losses }}</span>
+            <span class="winrate" id="winrate">({{ today.winrate }}%)</span>
+        </div>
+        <div class="lp-row">
+            {% if today.lp is not none %}
+            LP: <span class="value" id="lp">{{ today.lp }}</span>
+            {% endif %}
+            {% if today.mr is not none %}
+            &nbsp; MR: <span class="value" id="mr">{{ today.mr }}</span>
+            {% endif %}
+        </div>
+        <div class="history" id="history">
+            {% for r in recent %}
+            <span class="dot {{ 'dot-win' if r.result == 'win' else 'dot-lose' }}"></span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+    function refresh() {
+        fetch('/api/stats/today')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                document.getElementById('wins').textContent = 'W' + d.wins;
+                document.getElementById('losses').textContent = 'L' + d.losses;
+                document.getElementById('winrate').textContent = '(' + d.winrate + '%)';
+                var lpEl = document.getElementById('lp');
+                var mrEl = document.getElementById('mr');
+                if (lpEl && d.lp !== null) lpEl.textContent = d.lp;
+                if (mrEl && d.mr !== null) mrEl.textContent = d.mr;
+            });
+
+        fetch('/api/matches?limit=10')
+            .then(function(r) { return r.json(); })
+            .then(function(matches) {
+                var hist = document.getElementById('history');
+                hist.innerHTML = '';
+                matches.forEach(function(m) {
+                    var dot = document.createElement('span');
+                    dot.className = 'dot ' + (m.result === 'win' ? 'dot-win' : 'dot-lose');
+                    hist.appendChild(dot);
+                });
+            });
+    }
+    setInterval(refresh, 5000);
+    </script>
+</body>
+</html>

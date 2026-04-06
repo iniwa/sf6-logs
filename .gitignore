@@ -1,0 +1,47 @@
+# Data (Docker volume / SQLite)
+/data/
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+
+# Claude Code / AI
+CLAUDE.md
+CLAUDE_ja.md
+.claude/
+.claudeignore
+
+# Serena
+.serena/
+
+# Design docs (contain internal infra info)
+plan.md
+
+# Environment / Secrets
+.env
+.env.*
+*.pem
+*.key
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+
+# Logs
+*.log

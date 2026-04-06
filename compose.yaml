@@ -1,0 +1,12 @@
+services:
+  sf6-stats:
+    image: ghcr.io/iniwa/sf6-logs:latest
+    container_name: sf6-stats
+    restart: unless-stopped
+    ports:
+      - "8510:8510"
+    volumes:
+      - /home/iniwa/docker/sf6-stats/data:/app/data
+    environment:
+      - TZ=Asia/Tokyo
+    user: "1000:1000"

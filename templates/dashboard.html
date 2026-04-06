@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - SF6 Stats{% endblock %}
+
+{% block content %}
+<div class="summary-row">
+    <div class="stat-box">
+        <div class="value result-win" id="wins">{{ today.wins }}</div>
+        <div class="label">Wins</div>
+    </div>
+    <div class="stat-box">
+        <div class="value result-lose" id="losses">{{ today.losses }}</div>
+        <div class="label">Losses</div>
+    </div>
+    <div class="stat-box">
+        <div class="value" id="winrate">{{ today.winrate }}%</div>
+        <div class="label">Win Rate</div>
+    </div>
+    <div class="stat-box">
+        <div class="value" id="lp">{{ today.lp if today.lp is not none else '-' }}</div>
+        <div class="label">LP</div>
+    </div>
+    <div class="stat-box">
+        <div class="value" id="mr">{{ today.mr if today.mr is not none else '-' }}</div>
+        <div class="label">MR</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Scheduler</h2>
+    <p>
+        Status: <strong>{{ 'Running' if status.is_running else 'Stopped' }}</strong>
+        {% if status.last_fetch %}
+         | Last fetch: {{ status.last_fetch | format_datetime }}
+        {% endif %}
+        {% if status.next_run %}
+         | Next: {{ status.next_run | format_datetime }}
+        {% endif %}
+         | Matches found: {{ status.matches_found }}
+    </p>
+</div>
+
+<div class="card">
+    <h2>Match History</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Result</th>
+                <th>My Char</th>
+                <th>vs</th>
+                <th>Opponent</th>
+                <th>LP</th>
+                <th>Type</th>
+            </tr>
+        </thead>
+        <tbody id="match-table">
+            {% for m in matches %}
+            <tr>
+                <td>{{ m.played_at | format_datetime }}</td>
+                <td class="{{ m.result | result_class }}">{{ m.result | result_icon }}</td>
+                <td>{{ m.my_character }}</td>
+                <td>{{ m.opp_character }}</td>
+                <td>{{ m.opp_name }}</td>
+                <td class="{{ 'result-win' if m.lp_after and m.lp_before and m.lp_after > m.lp_before else 'result-lose' if m.lp_after and m.lp_before and m.lp_after < m.lp_before else '' }}">
+                    {{ m | lp_change }}
+                </td>
+                <td>{{ m.battle_type }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function refreshStats() {
+    fetchJSON('/api/stats/today', function(data) {
+        document.getElementById('wins').textContent = data.wins;
+        document.getElementById('losses').textContent = data.losses;
+        document.getElementById('winrate').textContent = data.winrate + '%';
+        document.getElementById('lp').textContent = data.lp !== null ? data.lp : '-';
+        document.getElementById('mr').textContent = data.mr !== null ? data.mr : '-';
+    });
+}
+setInterval(refreshStats, 10000);
+</script>
+{% endblock %}

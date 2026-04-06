@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Settings - SF6 Stats{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>CFN Authentication</h2>
+    <form method="POST" action="/settings/save_cookie">
+        <div style="margin-bottom: 12px;">
+            <label for="cfn_cookie" style="display: block; margin-bottom: 4px; color: var(--text-dim); font-size: 0.85rem;">CFN Cookie</label>
+            <input type="text" id="cfn_cookie" name="cfn_cookie" value="{{ config.cfn_cookie }}"
+                   placeholder="Paste your CFN session cookie here">
+        </div>
+        <button type="submit" class="btn btn-primary">Save Cookie</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Mock Mode</h2>
+    <p style="margin-bottom: 12px; color: var(--text-dim); font-size: 0.9rem;">
+        Mock mode generates fake match data for testing without connecting to CFN.
+        Currently: <strong>{{ 'ON' if config.mock_mode == 'true' else 'OFF' }}</strong>
+    </p>
+    <form method="POST" action="/settings/toggle_mock">
+        <button type="submit" class="btn {{ 'btn-secondary' if config.mock_mode == 'true' else 'btn-success' }}">
+            {{ 'Disable Mock' if config.mock_mode == 'true' else 'Enable Mock' }}
+        </button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Session Management</h2>
+    <p style="margin-bottom: 12px; color: var(--text-dim); font-size: 0.9rem;">
+        Sessions let you track stats per streaming session.
+    </p>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <form method="POST" action="/settings/session/start" style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" name="label" placeholder="Session label (optional)" style="width: 200px;">
+            <button type="submit" class="btn btn-success">Start Session</button>
+        </form>
+        <form method="POST" action="/settings/session/end">
+            <button type="submit" class="btn btn-secondary">End Session</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Configuration</h2>
+    <table>
+        <thead><tr><th>Key</th><th>Value</th></tr></thead>
+        <tbody>
+            {% for key, val in config.items() %}
+            <tr>
+                <td>{{ key }}</td>
+                <td>{{ '***' if 'cookie' in key and val else val }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
