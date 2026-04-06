@@ -46,7 +46,10 @@ def test_login():
 @bp.route('/settings/toggle_mock', methods=['POST'])
 def toggle_mock():
     current = storage.get_config('mock_mode', 'true')
-    storage.set_config('mock_mode', 'false' if current == 'true' else 'true')
+    new_value = 'false' if current == 'true' else 'true'
+    storage.set_config('mock_mode', new_value)
+    if new_value == 'false':
+        storage.delete_mock_matches()
     return redirect(url_for('settings.index'))
 
 

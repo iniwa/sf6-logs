@@ -182,6 +182,20 @@ def get_matches_since(since_dt):
             conn.close()
 
 
+def delete_mock_matches():
+    with c.db_lock:
+        conn = _connect()
+        try:
+            cur = conn.execute("DELETE FROM matches WHERE replay_id LIKE 'MOCK-%'")
+            conn.commit()
+            count = cur.rowcount
+            if count > 0:
+                c.log(f'Deleted {count} mock match(es)')
+            return count
+        finally:
+            conn.close()
+
+
 # --- Sessions ---
 
 def start_session(label=None):

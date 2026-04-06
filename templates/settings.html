@@ -99,6 +99,39 @@
 </div>
 
 <div class="card">
+    <h2>Overlay URLs</h2>
+    <p style="margin-bottom: 12px; color: var(--text-dim); font-size: 0.9rem;">
+        OBS のブラウザソースに以下の URL を設定してください。クリックでコピーできます。
+    </p>
+    <table>
+        <thead><tr><th>Type</th><th>URL</th></tr></thead>
+        <tbody>
+            {% set base = request.host_url.rstrip('/') %}
+            {% set overlays = [
+                ('Full (W/L + LP/MR + History)', '/overlay'),
+                ('Record Only (W/L + WinRate)', '/overlay/record'),
+                ('LP / MR Only', '/overlay/lp'),
+                ('Match History Only', '/overlay/history'),
+            ] %}
+            {% for label, path in overlays %}
+            <tr>
+                <td>{{ label }}</td>
+                <td>
+                    <code class="overlay-url" style="cursor:pointer;padding:4px 8px;background:var(--bg);border-radius:4px;font-size:0.85rem;display:inline-block;" onclick="copyUrl(this)" title="Click to copy">{{ base }}{{ path }}</code>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div style="margin-top: 12px;">
+        <p style="color: var(--text-dim); font-size: 0.8rem;">
+            Parameters: <code>?theme=dark|sf6</code> &nbsp; <code>?size=small|medium|large</code>
+            <br>Example: <code>{{ base }}/overlay?theme=sf6&size=large</code>
+        </p>
+    </div>
+</div>
+
+<div class="card">
     <h2>Configuration</h2>
     <table>
         <thead><tr><th>Key</th><th>Value</th></tr></thead>
@@ -112,4 +145,14 @@
         </tbody>
     </table>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyUrl(el) {
+    navigator.clipboard.writeText(el.textContent.trim()).then(function() {
+        showToast('Copied!');
+    });
+}
+</script>
 {% endblock %}
