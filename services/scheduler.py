@@ -14,8 +14,27 @@ _status = {
     'is_running': False,
     'auth_ok': None,       # None=未チェック, True=OK, False=失敗
     'auth_checked_at': None,
+    'auto_login_last': None,   # 最後の自動ログイン試行結果
 }
 _status_lock = threading.Lock()
+
+
+def _try_auto_login():
+    """自動ログインを試行。成功なら True、失敗/未設定なら False"""
+    try:
+        result = cfn_auth.refresh_cookie()
+        if result:
+            with _status_lock:
+                _status['auto_login_last'] = f'success at {c.get_now().isoformat()}'
+                _status['auth_ok'] = True
+                _status['auth_checked_at'] = c.get_now().isoformat()
+            return True
+        return False
+    except Exception as e:
+        c.log(f'Auto-login failed: {e}')
+        with _status_lock:
+            _status['auto_login_last'] = f'failed: {e}'
+        return False
 
 
 def _poll_job():
@@ -46,10 +65,16 @@ def _poll_job():
             c.log(f'Fetched {new_count} new match(es)')
 
     except Exception as e:
+        error_msg = str(e)
         with _status_lock:
-            _status['last_error'] = str(e)
+            _status['last_error'] = error_msg
             _status['error_count'] += 1
         c.log(f'Poll error: {e}')
+
+        # 認証エラーの場合、自動ログインを試行
+        if not mock_mode and ('403' in error_msg or 'cookie' in error_msg.lower()):
+            c.log('Poll: auth error detected, attempting auto-login...')
+            _try_auto_login()
 
 
 def _check_auth_job():
@@ -60,6 +85,9 @@ def _check_auth_job():
 
     cookie = storage.get_config('cfn_cookie')
     if not cookie:
+        # Cookie なし → 自動ログインを試行
+        if _try_auto_login():
+            return
         with _status_lock:
             _status['auth_ok'] = False
             _status['auth_checked_at'] = c.get_now().isoformat()
@@ -70,7 +98,9 @@ def _check_auth_job():
     ok = build_id is not None
 
     if not ok:
-        c.log('Auth check: Cookie may be expired or invalid')
+        c.log('Auth check: Cookie may be expired, attempting auto-login...')
+        if _try_auto_login():
+            return
 
     with _status_lock:
         _status['auth_ok'] = ok
@@ -116,4 +146,16 @@ def get_scheduler_status():
 
     job = scheduler.get_job('cfn_poll')
     status['next_run'] = job.next_run_time.isoformat() if job and job.next_run_time else None
+
+    # Cookie 経過時間を計算
+    saved_at = storage.get_config('cfn_cookie_saved_at')
+    if saved_at:
+        status['cookie_saved_at'] = saved_at
+    else:
+        status['cookie_saved_at'] = None
+
+    # 自動ログイン設定有無
+    email = storage.get_config('capcom_email')
+    status['auto_login_configured'] = bool(email)
+
     return status

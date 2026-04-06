@@ -37,9 +37,17 @@
 <div class="card" style="border: 1px solid var(--accent); background: rgba(233, 69, 96, 0.1);">
     <h2 style="color: var(--accent);">⚠ Cookie Expired</h2>
     <p style="color: var(--text-dim);">
-        CFN の Cookie が無効です。<a href="/settings" style="color: var(--accent-green);">Settings</a> で再設定してください。
+        CFN の Cookie が無効です。
+        {% if status.auto_login_configured %}
+            自動ログインを試行中...
+            {% if status.auto_login_last %}
+            <br><small>Last attempt: {{ status.auto_login_last }}</small>
+            {% endif %}
+        {% else %}
+            <a href="/settings" style="color: var(--accent-green);">Settings</a> で Cookie を再設定するか、CAPCOM ID で自動ログインを設定してください。
+        {% endif %}
         {% if status.auth_checked_at %}
-        ({{ status.auth_checked_at | format_datetime }})
+        <br><small>Checked: {{ status.auth_checked_at | format_datetime }}</small>
         {% endif %}
     </p>
 </div>
@@ -56,6 +64,10 @@
          | Next: {{ status.next_run | format_datetime }}
         {% endif %}
          | Matches found: {{ status.matches_found }}
+    </p>
+    <p style="font-size: 0.85rem; color: var(--text-dim); margin-top: 4px;">
+        Cookie: {% if status.cookie_saved_at %}saved {{ status.cookie_saved_at | format_datetime }}{% else %}not set{% endif %}
+         | Auto-login: {{ 'configured' if status.auto_login_configured else 'not configured' }}
     </p>
 </div>
 

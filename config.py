@@ -18,7 +18,10 @@ db_lock = threading.RLock()
 
 DEFAULT_CONFIG = {
     'cfn_cookie': '',
+    'cfn_cookie_saved_at': '',
     'cfn_user_id': '',
+    'capcom_email': '',
+    'capcom_password': '',
     'poll_interval': '90',
     'mock_mode': 'true',
     'overlay_theme': 'dark',

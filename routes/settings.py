@@ -22,6 +22,27 @@ def save_cfn():
     return redirect(url_for('settings.index'))
 
 
+@bp.route('/settings/save_capcom_id', methods=['POST'])
+def save_capcom_id():
+    email = request.form.get('capcom_email', '').strip()
+    password = request.form.get('capcom_password', '').strip()
+    if email:
+        storage.set_config('capcom_email', email)
+    if password:
+        storage.set_config('capcom_password', password)
+    return redirect(url_for('settings.index'))
+
+
+@bp.route('/settings/test_login', methods=['POST'])
+def test_login():
+    """自動ログインをテスト実行"""
+    try:
+        cfn_auth.auto_login()
+        return redirect(url_for('settings.index', msg='login_ok'))
+    except Exception as e:
+        return redirect(url_for('settings.index', msg='login_fail', detail=str(e)))
+
+
 @bp.route('/settings/toggle_mock', methods=['POST'])
 def toggle_mock():
     current = storage.get_config('mock_mode', 'true')
