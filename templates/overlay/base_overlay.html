@@ -9,6 +9,8 @@
     {% block content %}{% endblock %}
 
     <script>
+    var overlayMode = '{{ mode }}';
+    var modeParam = overlayMode !== 'all' ? 'mode=' + overlayMode : '';
     {% block scripts %}{% endblock %}
     </script>
     <script src="/static/js/overlay-sse.js"></script>

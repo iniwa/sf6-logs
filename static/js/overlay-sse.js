@@ -1,9 +1,11 @@
 /**
  * SSE client for overlay real-time updates.
  * Requires: updateStats(data) and optionally refreshHistory() to be defined by the page.
+ * Uses overlayMode (set in base_overlay.html) to decide SSE vs polling.
  */
 (function() {
     var pollFallback = null;
+    var useMode = typeof overlayMode !== 'undefined' && overlayMode !== 'all';
 
     function startPolling() {
         if (pollFallback) return;
@@ -12,7 +14,8 @@
         }, 5000);
     }
 
-    if (typeof EventSource === 'undefined') {
+    // モード指定時は SSE の全体データが使えないためポーリング
+    if (useMode || typeof EventSource === 'undefined') {
         startPolling();
         return;
     }

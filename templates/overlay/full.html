@@ -39,7 +39,7 @@ function updateStats(d) {
 }
 
 function refreshHistory() {
-    fetch('/api/matches?limit=10')
+    fetch('/api/matches?limit=10' + (modeParam ? '&type=' + overlayMode : ''))
         .then(function(r) { return r.json(); })
         .then(function(matches) {
             var hist = document.getElementById('history');
@@ -53,7 +53,7 @@ function refreshHistory() {
 }
 
 function refresh() {
-    fetch('/api/stats/today').then(function(r) { return r.json(); }).then(updateStats);
+    fetch('/api/stats/today' + (modeParam ? '?' + modeParam : '')).then(function(r) { return r.json(); }).then(updateStats);
     refreshHistory();
 }
 {% endblock %}

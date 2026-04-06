@@ -16,6 +16,6 @@ function updateStats(d) {
     document.getElementById('winrate').textContent = '(' + d.winrate + '%)';
 }
 function refresh() {
-    fetch('/api/stats/today').then(function(r) { return r.json(); }).then(updateStats);
+    fetch('/api/stats/today' + (modeParam ? '?' + modeParam : '')).then(function(r) { return r.json(); }).then(updateStats);
 }
 {% endblock %}

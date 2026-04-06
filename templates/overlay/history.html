@@ -10,7 +10,7 @@
 {% endblock %}
 {% block scripts %}
 function refreshHistory() {
-    fetch('/api/matches?limit=10')
+    fetch('/api/matches?limit=10' + (modeParam ? '&type=' + overlayMode : ''))
         .then(function(r) { return r.json(); })
         .then(function(matches) {
             var hist = document.getElementById('history');

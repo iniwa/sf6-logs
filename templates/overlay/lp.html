@@ -24,6 +24,6 @@ function updateStats(d) {
     if (deltaEl) { deltaEl.textContent = delta !== null ? '(' + (delta >= 0 ? '+' : '') + delta + ')' : ''; deltaEl.className = delta > 0 ? 'delta-pos' : delta < 0 ? 'delta-neg' : ''; }
 }
 function refresh() {
-    fetch('/api/stats/today').then(function(r) { return r.json(); }).then(updateStats);
+    fetch('/api/stats/today' + (modeParam ? '?' + modeParam : '')).then(function(r) { return r.json(); }).then(updateStats);
 }
 {% endblock %}

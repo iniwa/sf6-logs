@@ -8,6 +8,9 @@ VALID_THEMES = ('dark', 'sf6')
 VALID_SIZES = ('small', 'medium', 'large')
 
 
+VALID_MODES = ('all', 'ranked', 'casual', 'battle_hub', 'custom')
+
+
 def _overlay_context():
     theme = request.args.get('theme', 'dark')
     if theme not in VALID_THEMES:
@@ -15,11 +18,16 @@ def _overlay_context():
     size = request.args.get('size', 'medium')
     if size not in VALID_SIZES:
         size = 'medium'
-    today = stats.get_today_stats()
-    recent = stats.get_recent_results(count=10)
+    mode = request.args.get('mode', 'all')
+    if mode not in VALID_MODES:
+        mode = 'all'
+    bt = mode if mode != 'all' else None
+    today = stats.get_today_stats(battle_type=bt)
+    recent = stats.get_recent_results(count=10, battle_type=bt)
     return {
         'theme': theme,
         'size': size,
+        'mode': mode,
         'today': today,
         'recent': recent,
     }
