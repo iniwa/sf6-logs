@@ -33,8 +33,13 @@ def register_filters(app):
 
     @app.template_filter('lp_change')
     def lp_change(match):
-        before = match.get('lp_before')
-        after = match.get('lp_after')
+        # MASTER の場合は MR の変動を表示
+        if match.get('mr_after') is not None:
+            before = match.get('mr_before')
+            after = match.get('mr_after')
+        else:
+            before = match.get('lp_before')
+            after = match.get('lp_after')
         if before is None or after is None:
             return ''
         diff = after - before

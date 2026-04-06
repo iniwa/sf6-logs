@@ -4,6 +4,14 @@ import config as c
 from services import storage
 
 
+def is_master():
+    """最新マッチに mr_after があれば MASTER ランク到達と判定"""
+    matches = storage.get_matches(limit=1)
+    if matches and matches[0].get('mr_after') is not None:
+        return True
+    return False
+
+
 def get_today_stats():
     today_start = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
     matches = storage.get_matches_since(today_start)
@@ -17,6 +25,7 @@ def get_today_stats():
     mr = None
     lp_delta = None
     mr_delta = None
+    master = is_master()
     if matches:
         latest = matches[0]
         lp = latest.get('lp_after')
@@ -39,6 +48,7 @@ def get_today_stats():
         'mr': mr,
         'lp_delta': lp_delta,
         'mr_delta': mr_delta,
+        'is_master': master,
     }
 
 
@@ -80,6 +90,7 @@ def get_session_stats():
         'mr': mr,
         'lp_delta': lp_delta,
         'mr_delta': mr_delta,
+        'is_master': is_master(),
         'session_id': session['id'],
         'session_label': session.get('label'),
     }
@@ -88,11 +99,12 @@ def get_session_stats():
 def get_current_lp():
     matches = storage.get_matches(limit=1)
     if not matches:
-        return {'lp': None, 'mr': None}
+        return {'lp': None, 'mr': None, 'is_master': False}
     latest = matches[0]
     return {
         'lp': latest.get('lp_after'),
         'mr': latest.get('mr_after'),
+        'is_master': latest.get('mr_after') is not None,
     }
 
 

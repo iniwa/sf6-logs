@@ -15,15 +15,19 @@ function renderLpChart(containerId, data) {
     var cw = W - pad.left - pad.right;
     var ch = H - pad.top - pad.bottom;
 
-    // Extract LP values (filter nulls)
+    // Auto-detect: MR があれば MASTER → MR を使う
+    var useMR = data.some(function(d) { return d.mr_after !== null && d.mr_after !== undefined; });
+    var key = useMR ? 'mr_after' : 'lp_after';
+    var chartLabel = useMR ? 'MR' : 'LP';
+
     var points = [];
     for (var i = 0; i < data.length; i++) {
-        if (data[i].lp_after !== null && data[i].lp_after !== undefined) {
-            points.push({x: i, lp: data[i].lp_after, result: data[i].result, time: data[i].played_at});
+        if (data[i][key] !== null && data[i][key] !== undefined) {
+            points.push({x: i, lp: data[i][key], result: data[i].result, time: data[i].played_at});
         }
     }
     if (points.length < 2) {
-        container.innerHTML = '<p style="color:#8892a0;text-align:center;padding:40px 0;">Not enough LP data</p>';
+        container.innerHTML = '<p style="color:#8892a0;text-align:center;padding:40px 0;">Not enough ' + chartLabel + ' data</p>';
         return;
     }
 

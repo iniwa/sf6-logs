@@ -2,27 +2,26 @@
 {% block content %}
 <div class="overlay">
     <div class="lp-row">
-        {% if today.lp is not none %}
-        LP: <span class="value" id="lp">{{ today.lp }}</span>
-        <span id="lp-delta" class="{{ 'delta-pos' if today.lp_delta and today.lp_delta > 0 else 'delta-neg' if today.lp_delta and today.lp_delta < 0 else '' }}">{% if today.lp_delta is not none %}({{ '+%d' % today.lp_delta if today.lp_delta >= 0 else today.lp_delta }}){% endif %}</span>
-        {% endif %}
-        {% if today.mr is not none %}
-        &nbsp; MR: <span class="value" id="mr">{{ today.mr }}</span>
-        <span id="mr-delta" class="{{ 'delta-pos' if today.mr_delta and today.mr_delta > 0 else 'delta-neg' if today.mr_delta and today.mr_delta < 0 else '' }}">{% if today.mr_delta is not none %}({{ '+%d' % today.mr_delta if today.mr_delta >= 0 else today.mr_delta }}){% endif %}</span>
+        {% if today.is_master %}
+        <span id="rating-label">MR</span>: <span class="value" id="rating">{{ today.mr if today.mr is not none else '-' }}</span>
+        <span id="rating-delta" class="{{ 'delta-pos' if today.mr_delta and today.mr_delta > 0 else 'delta-neg' if today.mr_delta and today.mr_delta < 0 else '' }}">{% if today.mr_delta is not none %}({{ '+%d' % today.mr_delta if today.mr_delta >= 0 else today.mr_delta }}){% endif %}</span>
+        {% else %}
+        <span id="rating-label">LP</span>: <span class="value" id="rating">{{ today.lp if today.lp is not none else '-' }}</span>
+        <span id="rating-delta" class="{{ 'delta-pos' if today.lp_delta and today.lp_delta > 0 else 'delta-neg' if today.lp_delta and today.lp_delta < 0 else '' }}">{% if today.lp_delta is not none %}({{ '+%d' % today.lp_delta if today.lp_delta >= 0 else today.lp_delta }}){% endif %}</span>
         {% endif %}
     </div>
 </div>
 {% endblock %}
 {% block scripts %}
 function updateStats(d) {
-    var lpEl = document.getElementById('lp');
-    var mrEl = document.getElementById('mr');
-    if (lpEl && d.lp !== null) lpEl.textContent = d.lp;
-    if (mrEl && d.mr !== null) mrEl.textContent = d.mr;
-    var lpD = document.getElementById('lp-delta');
-    var mrD = document.getElementById('mr-delta');
-    if (lpD) { lpD.textContent = d.lp_delta !== null ? '(' + (d.lp_delta >= 0 ? '+' : '') + d.lp_delta + ')' : ''; lpD.className = d.lp_delta > 0 ? 'delta-pos' : d.lp_delta < 0 ? 'delta-neg' : ''; }
-    if (mrD) { mrD.textContent = d.mr_delta !== null ? '(' + (d.mr_delta >= 0 ? '+' : '') + d.mr_delta + ')' : ''; mrD.className = d.mr_delta > 0 ? 'delta-pos' : d.mr_delta < 0 ? 'delta-neg' : ''; }
+    var ratingEl = document.getElementById('rating');
+    var labelEl = document.getElementById('rating-label');
+    var deltaEl = document.getElementById('rating-delta');
+    var val = d.is_master ? d.mr : d.lp;
+    var delta = d.is_master ? d.mr_delta : d.lp_delta;
+    if (labelEl) labelEl.textContent = d.is_master ? 'MR' : 'LP';
+    if (ratingEl) ratingEl.textContent = val !== null ? val : '-';
+    if (deltaEl) { deltaEl.textContent = delta !== null ? '(' + (delta >= 0 ? '+' : '') + delta + ')' : ''; deltaEl.className = delta > 0 ? 'delta-pos' : delta < 0 ? 'delta-neg' : ''; }
 }
 function refresh() {
     fetch('/api/stats/today').then(function(r) { return r.json(); }).then(updateStats);

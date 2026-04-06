@@ -15,22 +15,25 @@
         <div class="value" id="winrate">{{ today.winrate }}%</div>
         <div class="label">Win Rate</div>
     </div>
+    {% if today.is_master %}
     <div class="stat-box">
-        <div class="value" id="lp">{{ today.lp if today.lp is not none else '-' }}</div>
-        <div class="label">LP
-            <span id="lp-delta" class="{{ 'result-win' if today.lp_delta and today.lp_delta > 0 else 'result-lose' if today.lp_delta and today.lp_delta < 0 else '' }}" style="font-size: 0.8rem;">
-                {% if today.lp_delta is not none %}({{ '+%d' % today.lp_delta if today.lp_delta >= 0 else today.lp_delta }}){% endif %}
-            </span>
-        </div>
-    </div>
-    <div class="stat-box">
-        <div class="value" id="mr">{{ today.mr if today.mr is not none else '-' }}</div>
-        <div class="label">MR
-            <span id="mr-delta" class="{{ 'result-win' if today.mr_delta and today.mr_delta > 0 else 'result-lose' if today.mr_delta and today.mr_delta < 0 else '' }}" style="font-size: 0.8rem;">
+        <div class="value" id="rating">{{ today.mr if today.mr is not none else '-' }}</div>
+        <div class="label"><span id="rating-label">MR</span>
+            <span id="rating-delta" class="{{ 'result-win' if today.mr_delta and today.mr_delta > 0 else 'result-lose' if today.mr_delta and today.mr_delta < 0 else '' }}" style="font-size: 0.8rem;">
                 {% if today.mr_delta is not none %}({{ '+%d' % today.mr_delta if today.mr_delta >= 0 else today.mr_delta }}){% endif %}
             </span>
         </div>
     </div>
+    {% else %}
+    <div class="stat-box">
+        <div class="value" id="rating">{{ today.lp if today.lp is not none else '-' }}</div>
+        <div class="label"><span id="rating-label">LP</span>
+            <span id="rating-delta" class="{{ 'result-win' if today.lp_delta and today.lp_delta > 0 else 'result-lose' if today.lp_delta and today.lp_delta < 0 else '' }}" style="font-size: 0.8rem;">
+                {% if today.lp_delta is not none %}({{ '+%d' % today.lp_delta if today.lp_delta >= 0 else today.lp_delta }}){% endif %}
+            </span>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 {% if status.auth_ok == false %}
@@ -154,7 +157,7 @@
 {% endif %}
 
 <div class="card">
-    <h2>LP / MR Trend</h2>
+    <h2>{{ 'MR' if today.is_master else 'LP' }} Trend</h2>
     <div id="lp-chart" style="width:100%;min-height:200px;"></div>
 </div>
 
@@ -168,7 +171,7 @@
                 <th>My Char</th>
                 <th>vs</th>
                 <th>Opponent</th>
-                <th>LP</th>
+                <th>{{ 'MR' if today.is_master else 'LP' }}</th>
                 <th>Type</th>
             </tr>
         </thead>
@@ -180,7 +183,9 @@
                 <td>{{ m.my_character }}</td>
                 <td>{{ m.opp_character }}</td>
                 <td>{{ m.opp_name }}</td>
-                <td class="{{ 'result-win' if m.lp_after and m.lp_before and m.lp_after > m.lp_before else 'result-lose' if m.lp_after and m.lp_before and m.lp_after < m.lp_before else '' }}">
+                {% set after = m.mr_after if m.mr_after is not none else m.lp_after %}
+                {% set before = m.mr_before if m.mr_after is not none else m.lp_before %}
+                <td class="{{ 'result-win' if after and before and after > before else 'result-lose' if after and before and after < before else '' }}">
                     {{ m | lp_change }}
                 </td>
                 <td>{{ m.battle_type }}</td>
@@ -205,10 +210,18 @@ function refreshStats() {
         document.getElementById('wins').textContent = data.wins;
         document.getElementById('losses').textContent = data.losses;
         document.getElementById('winrate').textContent = data.winrate + '%';
-        document.getElementById('lp').textContent = data.lp !== null ? data.lp : '-';
-        document.getElementById('mr').textContent = data.mr !== null ? data.mr : '-';
-        document.getElementById('lp-delta').innerHTML = formatDelta(data.lp_delta);
-        document.getElementById('mr-delta').innerHTML = formatDelta(data.mr_delta);
+        var ratingEl = document.getElementById('rating');
+        var labelEl = document.getElementById('rating-label');
+        var deltaEl = document.getElementById('rating-delta');
+        if (data.is_master) {
+            if (ratingEl) ratingEl.textContent = data.mr !== null ? data.mr : '-';
+            if (labelEl) labelEl.textContent = 'MR';
+            if (deltaEl) deltaEl.innerHTML = formatDelta(data.mr_delta);
+        } else {
+            if (ratingEl) ratingEl.textContent = data.lp !== null ? data.lp : '-';
+            if (labelEl) labelEl.textContent = 'LP';
+            if (deltaEl) deltaEl.innerHTML = formatDelta(data.lp_delta);
+        }
     });
 }
 setInterval(refreshStats, 10000);
