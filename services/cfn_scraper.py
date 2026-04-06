@@ -36,6 +36,18 @@ def fetch_battle_log(session=None):
     return _fetch_real_battle_log(session)
 
 
+def _request_battlelog(session, short_id, build_id):
+    """バトルログ API にリクエストを送信"""
+    url = build_api_url(f'profile/{short_id}/battlelog.json', build_id)
+    if not url:
+        return None
+    try:
+        return session.get(url, params={'page': 1}, timeout=15)
+    except Exception as e:
+        c.log(f'CFN request error: {e}')
+        return None
+
+
 def _fetch_real_battle_log(session):
     """Buckler's Boot Camp からバトルログを取得"""
     short_id = storage.get_config('cfn_user_id')
@@ -51,30 +63,37 @@ def _fetch_real_battle_log(session):
         c.log('Failed to get BuildID — cookie may be invalid')
         return []
 
-    url = build_api_url(f'profile/{short_id}/battlelog.json', build_id)
-    if not url:
+    resp = _request_battlelog(session, short_id, build_id)
+    if resp is None:
+        return []
+
+    # BuildID 変更による 404 → リフレッシュして1回リトライ
+    if resp.status_code == 404:
+        c.log('CFN: 404 — BuildID may be stale, refreshing...')
+        new_build_id = get_build_id(session, force_refresh=True)
+        if new_build_id and new_build_id != build_id:
+            c.log(f'BuildID refreshed: {build_id} → {new_build_id}')
+            resp = _request_battlelog(session, short_id, new_build_id)
+            if resp is None:
+                return []
+
+    # エラーハンドリング
+    if resp.status_code == 403:
+        c.log('CFN: 403 Unauthorized — cookie expired or invalid')
+        return []
+    if resp.status_code == 404:
+        c.log(f'CFN: 404 Not Found — check short_id: {short_id}')
+        return []
+    if resp.status_code == 405 and resp.headers.get('x-amzn-waf-action'):
+        c.log('CFN: Rate limited by WAF — backing off')
+        return []
+    if resp.status_code == 503:
+        c.log('CFN: 503 Under maintenance')
         return []
 
     try:
-        resp = session.get(url, params={'page': 1}, timeout=15)
-
-        # エラーハンドリング
-        if resp.status_code == 403:
-            c.log('CFN: 403 Unauthorized — cookie expired or invalid')
-            return []
-        if resp.status_code == 404:
-            c.log(f'CFN: 404 Not Found — check short_id: {short_id}')
-            return []
-        if resp.status_code == 405 and resp.headers.get('x-amzn-waf-action'):
-            c.log('CFN: Rate limited by WAF — backing off')
-            return []
-        if resp.status_code == 503:
-            c.log('CFN: 503 Under maintenance')
-            return []
-
         resp.raise_for_status()
         data = resp.json()
-
     except Exception as e:
         c.log(f'CFN fetch error: {e}')
         return []

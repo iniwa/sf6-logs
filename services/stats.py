@@ -15,10 +15,20 @@ def get_today_stats():
 
     lp = None
     mr = None
+    lp_delta = None
+    mr_delta = None
     if matches:
         latest = matches[0]
         lp = latest.get('lp_after')
         mr = latest.get('mr_after')
+        # 本日最初のマッチの before と最新の after で差分計算
+        oldest = matches[-1]
+        lp_start = oldest.get('lp_before')
+        mr_start = oldest.get('mr_before')
+        if lp is not None and lp_start is not None:
+            lp_delta = lp - lp_start
+        if mr is not None and mr_start is not None:
+            mr_delta = mr - mr_start
 
     return {
         'wins': wins,
@@ -27,6 +37,8 @@ def get_today_stats():
         'winrate': winrate,
         'lp': lp,
         'mr': mr,
+        'lp_delta': lp_delta,
+        'mr_delta': mr_delta,
     }
 
 
@@ -45,10 +57,19 @@ def get_session_stats():
 
     lp = None
     mr = None
+    lp_delta = None
+    mr_delta = None
     if matches:
         latest = matches[0]
         lp = latest.get('lp_after')
         mr = latest.get('mr_after')
+        oldest = matches[-1]
+        lp_start = oldest.get('lp_before')
+        mr_start = oldest.get('mr_before')
+        if lp is not None and lp_start is not None:
+            lp_delta = lp - lp_start
+        if mr is not None and mr_start is not None:
+            mr_delta = mr - mr_start
 
     return {
         'wins': wins,
@@ -57,6 +78,8 @@ def get_session_stats():
         'winrate': winrate,
         'lp': lp,
         'mr': mr,
+        'lp_delta': lp_delta,
+        'mr_delta': mr_delta,
         'session_id': session['id'],
         'session_label': session.get('label'),
     }

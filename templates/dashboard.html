@@ -17,13 +17,33 @@
     </div>
     <div class="stat-box">
         <div class="value" id="lp">{{ today.lp if today.lp is not none else '-' }}</div>
-        <div class="label">LP</div>
+        <div class="label">LP
+            <span id="lp-delta" class="{{ 'result-win' if today.lp_delta and today.lp_delta > 0 else 'result-lose' if today.lp_delta and today.lp_delta < 0 else '' }}" style="font-size: 0.8rem;">
+                {% if today.lp_delta is not none %}({{ '+%d' % today.lp_delta if today.lp_delta >= 0 else today.lp_delta }}){% endif %}
+            </span>
+        </div>
     </div>
     <div class="stat-box">
         <div class="value" id="mr">{{ today.mr if today.mr is not none else '-' }}</div>
-        <div class="label">MR</div>
+        <div class="label">MR
+            <span id="mr-delta" class="{{ 'result-win' if today.mr_delta and today.mr_delta > 0 else 'result-lose' if today.mr_delta and today.mr_delta < 0 else '' }}" style="font-size: 0.8rem;">
+                {% if today.mr_delta is not none %}({{ '+%d' % today.mr_delta if today.mr_delta >= 0 else today.mr_delta }}){% endif %}
+            </span>
+        </div>
     </div>
 </div>
+
+{% if status.auth_ok == false %}
+<div class="card" style="border: 1px solid var(--accent); background: rgba(233, 69, 96, 0.1);">
+    <h2 style="color: var(--accent);">⚠ Cookie Expired</h2>
+    <p style="color: var(--text-dim);">
+        CFN の Cookie が無効です。<a href="/settings" style="color: var(--accent-green);">Settings</a> で再設定してください。
+        {% if status.auth_checked_at %}
+        ({{ status.auth_checked_at | format_datetime }})
+        {% endif %}
+    </p>
+</div>
+{% endif %}
 
 <div class="card">
     <h2>Scheduler</h2>
@@ -74,6 +94,12 @@
 
 {% block extra_js %}
 <script>
+function formatDelta(val) {
+    if (val === null || val === undefined) return '';
+    var cls = val > 0 ? 'result-win' : val < 0 ? 'result-lose' : '';
+    var text = val >= 0 ? '+' + val : val;
+    return '<span class="' + cls + '" style="font-size:0.8rem">(' + text + ')</span>';
+}
 function refreshStats() {
     fetchJSON('/api/stats/today', function(data) {
         document.getElementById('wins').textContent = data.wins;
@@ -81,6 +107,8 @@ function refreshStats() {
         document.getElementById('winrate').textContent = data.winrate + '%';
         document.getElementById('lp').textContent = data.lp !== null ? data.lp : '-';
         document.getElementById('mr').textContent = data.mr !== null ? data.mr : '-';
+        document.getElementById('lp-delta').innerHTML = formatDelta(data.lp_delta);
+        document.getElementById('mr-delta').innerHTML = formatDelta(data.mr_delta);
     });
 }
 setInterval(refreshStats, 10000);
