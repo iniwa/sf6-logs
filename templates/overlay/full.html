@@ -6,6 +6,11 @@
         -
         <span class="losses" id="losses">L{{ today.losses }}</span>
         <span class="winrate" id="winrate">({{ today.winrate }}%)</span>
+        {% if streak and today.streak and today.streak != 0 %}
+        <span class="streak {{ 'streak-win' if today.streak > 0 else 'streak-lose' }}" id="streak">{{ '\U0001f525' ~ today.streak if today.streak > 0 else '\u2744' ~ (today.streak | abs) }}</span>
+        {% else %}
+        <span class="streak" id="streak" style="display:none;"></span>
+        {% endif %}
     </div>
     <div class="lp-row">
         {% if today.is_master %}
@@ -24,29 +29,74 @@
 </div>
 {% endblock %}
 {% block scripts %}
+var _showStreak = {{ 'true' if streak else 'false' }};
+
+function animateChange(el, cssClass) {
+    if (!el || document.body.classList.contains('no-anim')) return;
+    el.classList.remove(cssClass);
+    void el.offsetWidth;
+    el.classList.add(cssClass);
+    el.addEventListener('animationend', function handler() {
+        el.classList.remove(cssClass);
+        el.removeEventListener('animationend', handler);
+    });
+}
+
 function updateStats(d) {
-    document.getElementById('wins').textContent = 'W' + d.wins;
-    document.getElementById('losses').textContent = 'L' + d.losses;
-    document.getElementById('winrate').textContent = '(' + d.winrate + '%)';
+    var winsEl = document.getElementById('wins');
+    var lossesEl = document.getElementById('losses');
+    var winrateEl = document.getElementById('winrate');
+    var newWins = 'W' + d.wins;
+    var newLosses = 'L' + d.losses;
+    var newWinrate = '(' + d.winrate + '%)';
+    if (winsEl.textContent !== newWins) { winsEl.textContent = newWins; animateChange(winsEl, 'value-changed-win'); }
+    if (lossesEl.textContent !== newLosses) { lossesEl.textContent = newLosses; animateChange(lossesEl, 'value-changed-lose'); }
+    if (winrateEl.textContent !== newWinrate) { winrateEl.textContent = newWinrate; animateChange(winrateEl, 'value-changed'); }
     var ratingEl = document.getElementById('rating');
     var labelEl = document.getElementById('rating-label');
     var deltaEl = document.getElementById('rating-delta');
     var val = d.is_master ? d.mr : d.lp;
     var delta = d.is_master ? d.mr_delta : d.lp_delta;
     if (labelEl) labelEl.textContent = d.is_master ? 'MR' : 'LP';
-    if (ratingEl) ratingEl.textContent = val !== null ? val : '-';
-    if (deltaEl) { deltaEl.textContent = delta !== null ? '(' + (delta >= 0 ? '+' : '') + delta + ')' : ''; deltaEl.className = delta > 0 ? 'delta-pos' : delta < 0 ? 'delta-neg' : ''; }
+    if (ratingEl) {
+        var newVal = val !== null ? String(val) : '-';
+        if (ratingEl.textContent !== newVal) { ratingEl.textContent = newVal; animateChange(ratingEl, 'value-changed'); }
+    }
+    if (deltaEl) {
+        var newDelta = delta !== null ? '(' + (delta >= 0 ? '+' : '') + delta + ')' : '';
+        if (deltaEl.textContent !== newDelta) { deltaEl.textContent = newDelta; animateChange(deltaEl, delta > 0 ? 'value-changed-win' : 'value-changed-lose'); }
+        deltaEl.className = delta > 0 ? 'delta-pos' : delta < 0 ? 'delta-neg' : '';
+    }
+    /* streak */
+    var streakEl = document.getElementById('streak');
+    if (streakEl && _showStreak) {
+        var s = d.streak || 0;
+        if (s !== 0) {
+            streakEl.textContent = s > 0 ? '\uD83D\uDD25' + s : '\u2744' + Math.abs(s);
+            streakEl.className = 'streak ' + (s > 0 ? 'streak-win' : 'streak-lose');
+            streakEl.style.display = '';
+        } else {
+            streakEl.style.display = 'none';
+        }
+    }
 }
 
+var _prevMatchIds = null;
 function refreshHistory() {
     fetch('/api/matches?limit=10' + (modeParam ? '&type=' + overlayMode : ''))
         .then(function(r) { return r.json(); })
         .then(function(matches) {
             var hist = document.getElementById('history');
+            var newIds = matches.map(function(m) { return (m.id || '') + '_' + m.result; }).join(',');
+            var hadPrev = _prevMatchIds !== null;
+            var changed = _prevMatchIds !== newIds;
+            _prevMatchIds = newIds;
+            if (!changed && hadPrev) return;
             hist.innerHTML = '';
-            matches.forEach(function(m) {
+            matches.forEach(function(m, i) {
                 var dot = document.createElement('span');
                 dot.className = 'dot ' + (m.result === 'win' ? 'dot-win' : 'dot-lose');
+                if (hadPrev && changed && i === 0) dot.classList.add('dot-new');
                 hist.appendChild(dot);
             });
         });

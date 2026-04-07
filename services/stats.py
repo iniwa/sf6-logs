@@ -12,6 +12,20 @@ def is_master():
     return False
 
 
+def _calc_streak(matches):
+    """先頭（最新）から連続する同一結果をカウント。正=連勝, 負=連敗, 0=なし"""
+    if not matches:
+        return 0
+    first_result = matches[0]['result']
+    count = 0
+    for m in matches:
+        if m['result'] == first_result:
+            count += 1
+        else:
+            break
+    return count if first_result == 'win' else -count
+
+
 def get_today_stats(battle_type=None):
     today_start = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
     matches = storage.get_matches_since(today_start, battle_type=battle_type)
@@ -49,6 +63,7 @@ def get_today_stats(battle_type=None):
         'lp_delta': lp_delta,
         'mr_delta': mr_delta,
         'is_master': master,
+        'streak': _calc_streak(matches),
     }
 
 
@@ -91,6 +106,7 @@ def get_session_stats(battle_type=None):
         'lp_delta': lp_delta,
         'mr_delta': mr_delta,
         'is_master': is_master(),
+        'streak': _calc_streak(matches),
         'session_id': session['id'],
         'session_label': session.get('label'),
     }

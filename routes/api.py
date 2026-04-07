@@ -16,13 +16,21 @@ _sse_lock = threading.Lock()
 
 def _notify_clients(match_dict):
     today = stats.get_today_stats()
-    data = json.dumps(today, ensure_ascii=False)
-    msg = f"event: stats\ndata: {data}\n\n"
+    stats_msg = f"event: stats\ndata: {json.dumps(today, ensure_ascii=False)}\n\n"
+
+    # 最新マッチ情報を event: match で送信
+    matches = storage.get_matches(limit=1)
+    match_msg = ""
+    if matches:
+        match_msg = f"event: match\ndata: {json.dumps(matches[0], ensure_ascii=False)}\n\n"
+
     with _sse_lock:
         dead = []
         for q in _sse_clients:
             try:
-                q.put_nowait(msg)
+                q.put_nowait(stats_msg)
+                if match_msg:
+                    q.put_nowait(match_msg)
             except queue.Full:
                 dead.append(q)
         for q in dead:

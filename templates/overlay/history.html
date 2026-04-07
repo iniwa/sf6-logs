@@ -9,15 +9,22 @@
 </div>
 {% endblock %}
 {% block scripts %}
+var _prevMatchIds = null;
 function refreshHistory() {
     fetch('/api/matches?limit=10' + (modeParam ? '&type=' + overlayMode : ''))
         .then(function(r) { return r.json(); })
         .then(function(matches) {
             var hist = document.getElementById('history');
+            var newIds = matches.map(function(m) { return (m.id || '') + '_' + m.result; }).join(',');
+            var hadPrev = _prevMatchIds !== null;
+            var changed = _prevMatchIds !== newIds;
+            _prevMatchIds = newIds;
+            if (!changed && hadPrev) return;
             hist.innerHTML = '';
-            matches.forEach(function(m) {
+            matches.forEach(function(m, i) {
                 var dot = document.createElement('span');
                 dot.className = 'dot ' + (m.result === 'win' ? 'dot-win' : 'dot-lose');
+                if (hadPrev && changed && i === 0) dot.classList.add('dot-new');
                 hist.appendChild(dot);
             });
         });

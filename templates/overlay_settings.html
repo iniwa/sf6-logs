@@ -40,6 +40,7 @@
                 <option value="/overlay/record">Record (W/L + WinRate)</option>
                 <option value="/overlay/lp">LP / MR Only</option>
                 <option value="/overlay/history">Match History Only</option>
+                <option value="/overlay/popup">Popup Notification</option>
             </select>
         </div>
 
@@ -62,6 +63,15 @@
             </select>
         </div>
 
+        <!-- Layout -->
+        <div>
+            <label style="display:block;margin-bottom:6px;color:var(--text-dim);font-size:0.85rem;">Layout</label>
+            <select id="ovl-layout" onchange="buildUrls()">
+                <option value="vertical">Vertical</option>
+                <option value="horizontal">Horizontal</option>
+            </select>
+        </div>
+
         <!-- Mode -->
         <div>
             <label style="display:block;margin-bottom:6px;color:var(--text-dim);font-size:0.85rem;">Battle Mode</label>
@@ -73,6 +83,16 @@
                 <option value="custom">Custom</option>
             </select>
         </div>
+    </div>
+
+    <!-- Feature Toggles -->
+    <div style="display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 20px; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px;">
+        <label style="display:flex;align-items:center;gap:6px;color:var(--text-dim);font-size:0.85rem;cursor:pointer;">
+            <input type="checkbox" id="ovl-anim" checked onchange="buildUrls()"> Animations
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;color:var(--text-dim);font-size:0.85rem;cursor:pointer;">
+            <input type="checkbox" id="ovl-streak" checked onchange="buildUrls()"> Streak
+        </label>
     </div>
 
     <!-- Generated URL -->
@@ -116,6 +136,7 @@
                 ('Record Only (W/L + WinRate)', '/overlay/record'),
                 ('LP / MR Only', '/overlay/lp'),
                 ('Match History Only', '/overlay/history'),
+                ('Popup Notification', '/overlay/popup'),
             ] %}
             {% for label, path in overlays %}
             <tr>
@@ -138,12 +159,18 @@ function buildUrls() {
     var type = document.getElementById('ovl-type').value;
     var theme = document.getElementById('ovl-theme').value;
     var size = document.getElementById('ovl-size').value;
+    var layout = document.getElementById('ovl-layout').value;
     var mode = document.getElementById('ovl-mode').value;
+    var anim = document.getElementById('ovl-anim').checked;
+    var streak = document.getElementById('ovl-streak').checked;
 
     var params = [];
     if (theme !== 'dark') params.push('theme=' + theme);
     if (size !== 'medium') params.push('size=' + size);
+    if (layout !== 'vertical') params.push('layout=' + layout);
     if (mode !== 'all') params.push('mode=' + mode);
+    if (!anim) params.push('anim=0');
+    if (!streak) params.push('streak=0');
 
     var qs = params.length > 0 ? '?' + params.join('&') : '';
 

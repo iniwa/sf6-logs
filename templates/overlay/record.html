@@ -6,14 +6,49 @@
         -
         <span class="losses" id="losses">L{{ today.losses }}</span>
         <span class="winrate" id="winrate">({{ today.winrate }}%)</span>
+        {% if streak and today.streak and today.streak != 0 %}
+        <span class="streak {{ 'streak-win' if today.streak > 0 else 'streak-lose' }}" id="streak">{{ '\U0001f525' ~ today.streak if today.streak > 0 else '\u2744' ~ (today.streak | abs) }}</span>
+        {% else %}
+        <span class="streak" id="streak" style="display:none;"></span>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
 {% block scripts %}
+var _showStreak = {{ 'true' if streak else 'false' }};
+
+function animateChange(el, cssClass) {
+    if (!el || document.body.classList.contains('no-anim')) return;
+    el.classList.remove(cssClass);
+    void el.offsetWidth;
+    el.classList.add(cssClass);
+    el.addEventListener('animationend', function handler() {
+        el.classList.remove(cssClass);
+        el.removeEventListener('animationend', handler);
+    });
+}
 function updateStats(d) {
-    document.getElementById('wins').textContent = 'W' + d.wins;
-    document.getElementById('losses').textContent = 'L' + d.losses;
-    document.getElementById('winrate').textContent = '(' + d.winrate + '%)';
+    var winsEl = document.getElementById('wins');
+    var lossesEl = document.getElementById('losses');
+    var winrateEl = document.getElementById('winrate');
+    var newWins = 'W' + d.wins;
+    var newLosses = 'L' + d.losses;
+    var newWinrate = '(' + d.winrate + '%)';
+    if (winsEl.textContent !== newWins) { winsEl.textContent = newWins; animateChange(winsEl, 'value-changed-win'); }
+    if (lossesEl.textContent !== newLosses) { lossesEl.textContent = newLosses; animateChange(lossesEl, 'value-changed-lose'); }
+    if (winrateEl.textContent !== newWinrate) { winrateEl.textContent = newWinrate; animateChange(winrateEl, 'value-changed'); }
+    /* streak */
+    var streakEl = document.getElementById('streak');
+    if (streakEl && _showStreak) {
+        var s = d.streak || 0;
+        if (s !== 0) {
+            streakEl.textContent = s > 0 ? '\uD83D\uDD25' + s : '\u2744' + Math.abs(s);
+            streakEl.className = 'streak ' + (s > 0 ? 'streak-win' : 'streak-lose');
+            streakEl.style.display = '';
+        } else {
+            streakEl.style.display = 'none';
+        }
+    }
 }
 function refresh() {
     fetch('/api/stats/today' + (modeParam ? '?' + modeParam : '')).then(function(r) { return r.json(); }).then(updateStats);

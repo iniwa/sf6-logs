@@ -13,6 +13,16 @@
 </div>
 {% endblock %}
 {% block scripts %}
+function animateChange(el, cssClass) {
+    if (!el || document.body.classList.contains('no-anim')) return;
+    el.classList.remove(cssClass);
+    void el.offsetWidth;
+    el.classList.add(cssClass);
+    el.addEventListener('animationend', function handler() {
+        el.classList.remove(cssClass);
+        el.removeEventListener('animationend', handler);
+    });
+}
 function updateStats(d) {
     var ratingEl = document.getElementById('rating');
     var labelEl = document.getElementById('rating-label');
@@ -20,8 +30,15 @@ function updateStats(d) {
     var val = d.is_master ? d.mr : d.lp;
     var delta = d.is_master ? d.mr_delta : d.lp_delta;
     if (labelEl) labelEl.textContent = d.is_master ? 'MR' : 'LP';
-    if (ratingEl) ratingEl.textContent = val !== null ? val : '-';
-    if (deltaEl) { deltaEl.textContent = delta !== null ? '(' + (delta >= 0 ? '+' : '') + delta + ')' : ''; deltaEl.className = delta > 0 ? 'delta-pos' : delta < 0 ? 'delta-neg' : ''; }
+    if (ratingEl) {
+        var newVal = val !== null ? String(val) : '-';
+        if (ratingEl.textContent !== newVal) { ratingEl.textContent = newVal; animateChange(ratingEl, 'value-changed'); }
+    }
+    if (deltaEl) {
+        var newDelta = delta !== null ? '(' + (delta >= 0 ? '+' : '') + delta + ')' : '';
+        if (deltaEl.textContent !== newDelta) { deltaEl.textContent = newDelta; animateChange(deltaEl, delta > 0 ? 'value-changed-win' : 'value-changed-lose'); }
+        deltaEl.className = delta > 0 ? 'delta-pos' : delta < 0 ? 'delta-neg' : '';
+    }
 }
 function refresh() {
     fetch('/api/stats/today' + (modeParam ? '?' + modeParam : '')).then(function(r) { return r.json(); }).then(updateStats);

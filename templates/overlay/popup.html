@@ -1,0 +1,83 @@
+{% extends "overlay/base_overlay.html" %}
+{% block content %}
+<div id="popup" class="popup-notification popup-hidden">
+    <div class="popup-result" id="popup-result"></div>
+    <div class="popup-detail">
+        <span class="popup-delta" id="popup-delta"></span>
+        <span class="popup-opponent" id="popup-opponent"></span>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+/* popup overlay: stats/refresh は不要なので空実装 */
+function updateStats(d) {}
+
+(function() {
+    var popup = document.getElementById('popup');
+    var resultEl = document.getElementById('popup-result');
+    var deltaEl = document.getElementById('popup-delta');
+    var opponentEl = document.getElementById('popup-opponent');
+    var hideTimer = null;
+
+    function showPopup(match) {
+        /* 結果テキスト */
+        var isWin = match.result === 'win';
+        resultEl.textContent = isWin ? 'WIN' : 'LOSE';
+        resultEl.className = 'popup-result ' + (isWin ? 'popup-win' : 'popup-lose');
+
+        /* LP / MR 差分 */
+        var delta = null;
+        var unit = '';
+        if (match.mr_after !== null && match.mr_after !== undefined &&
+            match.mr_before !== null && match.mr_before !== undefined) {
+            delta = match.mr_after - match.mr_before;
+            unit = ' MR';
+        } else if (match.lp_after !== null && match.lp_after !== undefined &&
+                   match.lp_before !== null && match.lp_before !== undefined) {
+            delta = match.lp_after - match.lp_before;
+            unit = ' LP';
+        }
+        if (delta !== null) {
+            deltaEl.textContent = (delta >= 0 ? '+' : '') + delta + unit;
+            deltaEl.className = 'popup-delta ' + (delta >= 0 ? 'popup-delta-pos' : 'popup-delta-neg');
+        } else {
+            deltaEl.textContent = '';
+        }
+
+        /* 対戦キャラ */
+        if (match.opp_character || match.opponent_character) {
+            opponentEl.textContent = 'vs. ' + (match.opp_character || match.opponent_character);
+        } else {
+            opponentEl.textContent = '';
+        }
+
+        /* アニメーション表示 */
+        if (hideTimer) clearTimeout(hideTimer);
+        popup.classList.remove('popup-hidden', 'popup-fadeout');
+        popup.classList.add('popup-show');
+
+        /* 5秒後にフェードアウト */
+        hideTimer = setTimeout(function() {
+            popup.classList.add('popup-fadeout');
+            setTimeout(function() {
+                popup.classList.remove('popup-show', 'popup-fadeout');
+                popup.classList.add('popup-hidden');
+            }, 600);
+        }, 5000);
+    }
+
+    /* SSE: event: match を直接購読 */
+    if (typeof EventSource !== 'undefined') {
+        var es = new EventSource('/api/stream');
+        es.addEventListener('match', function(e) {
+            try {
+                var match = JSON.parse(e.data);
+                showPopup(match);
+            } catch (err) {}
+        });
+        es.onerror = function() {
+            es.close();
+        };
+    }
+})();
+{% endblock %}
