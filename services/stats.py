@@ -26,9 +26,13 @@ def _calc_streak(matches):
     return count if first_result == 'win' else -count
 
 
-def get_today_stats(battle_type=None):
-    today_start = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
-    matches = storage.get_matches_since(today_start, battle_type=battle_type)
+_UNSET = object()
+
+
+def get_today_stats(battle_type=None, since_dt=_UNSET):
+    if since_dt is _UNSET:
+        since_dt = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
+    matches = storage.get_matches_since(since_dt, battle_type=battle_type)
 
     wins = sum(1 for m in matches if m['result'] == 'win')
     losses = sum(1 for m in matches if m['result'] == 'lose')
@@ -163,22 +167,22 @@ def _aggregate_by(matches, key):
     return results
 
 
-def get_character_stats(since_dt=None, battle_type=None):
-    if since_dt is None:
+def get_character_stats(since_dt=_UNSET, battle_type=None):
+    if since_dt is _UNSET:
         since_dt = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
     matches = storage.get_matches_since(since_dt, battle_type=battle_type)
     return _aggregate_by(matches, 'my_character')
 
 
-def get_matchup_stats(since_dt=None, battle_type=None):
-    if since_dt is None:
+def get_matchup_stats(since_dt=_UNSET, battle_type=None):
+    if since_dt is _UNSET:
         since_dt = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
     matches = storage.get_matches_since(since_dt, battle_type=battle_type)
     return _aggregate_by(matches, 'opp_character')
 
 
-def get_opponent_stats(since_dt=None, battle_type=None):
-    if since_dt is None:
+def get_opponent_stats(since_dt=_UNSET, battle_type=None):
+    if since_dt is _UNSET:
         since_dt = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
     matches = storage.get_matches_since(since_dt, battle_type=battle_type)
     return _aggregate_by(matches, 'opp_name')

@@ -2,8 +2,11 @@ import json
 import queue
 import threading
 
+from datetime import datetime, timedelta
+
 from flask import Blueprint, jsonify, request, Response
 
+import config as c
 from services import storage, stats, cfn_auth
 from services import scheduler as sched
 
@@ -49,10 +52,33 @@ def status():
     })
 
 
+def _parse_api_period():
+    """API 用の期間パラメータを解析して since_dt を返す"""
+    period = request.args.get('period')
+    if not period:
+        return stats._UNSET  # デフォルト（今日）
+    if period == 'all':
+        return None
+    if period == 'day':
+        date_str = request.args.get('date')
+        if date_str:
+            try:
+                day = datetime.strptime(date_str, '%Y-%m-%d')
+                return day.replace(hour=0, minute=0, second=0, microsecond=0,
+                                   tzinfo=c.JST)
+            except ValueError:
+                pass
+        return c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
+    hours_map = {'24h': 24, '8h': 8, '1h': 1}
+    hours = hours_map.get(period, 24)
+    return c.get_now() - timedelta(hours=hours)
+
+
 @bp.route('/stats/today')
 def stats_today():
     mode = request.args.get('mode')
-    return jsonify(stats.get_today_stats(battle_type=mode))
+    since_dt = _parse_api_period()
+    return jsonify(stats.get_today_stats(battle_type=mode, since_dt=since_dt))
 
 
 @bp.route('/stats/session')

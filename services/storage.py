@@ -169,16 +169,25 @@ def get_matches(limit=50, offset=0, battle_type=None):
             conn.close()
 
 
-def get_matches_since(since_dt, battle_type=None):
+def get_matches_since(since_dt=None, battle_type=None, limit=None):
     with c.db_lock:
         conn = _connect()
         try:
-            sql = 'SELECT * FROM matches WHERE played_at >= ?'
-            params = [since_dt.isoformat()]
+            sql = 'SELECT * FROM matches'
+            params = []
+            conditions = []
+            if since_dt is not None:
+                conditions.append('played_at >= ?')
+                params.append(since_dt.isoformat())
             if battle_type:
-                sql += ' AND battle_type = ?'
+                conditions.append('battle_type = ?')
                 params.append(battle_type)
+            if conditions:
+                sql += ' WHERE ' + ' AND '.join(conditions)
             sql += ' ORDER BY played_at DESC'
+            if limit:
+                sql += ' LIMIT ?'
+                params.append(limit)
             rows = conn.execute(sql, params).fetchall()
             return [dict(row) for row in rows]
         finally:

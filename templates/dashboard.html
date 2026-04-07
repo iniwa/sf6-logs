@@ -2,14 +2,28 @@
 {% block title %}Dashboard - SF6 Stats{% endblock %}
 
 {% block content %}
-<div class="mode-tabs" style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap;">
+<div class="mode-tabs" style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
     {% for value, label in battle_modes %}
-    <a href="/?mode={{ value }}"
+    <a href="/?mode={{ value }}&period={{ current_period }}{% if selected_date %}&date={{ selected_date }}{% endif %}"
        class="btn {{ 'btn-primary' if current_mode == value else 'btn-secondary' }}"
        style="text-decoration:none;font-size:0.85rem;padding:6px 14px;">
         {{ label }}
     </a>
     {% endfor %}
+</div>
+<div class="period-tabs" style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+    {% for value, label in period_choices %}
+    <a href="/?mode={{ current_mode }}&period={{ value }}{% if value == 'day' and selected_date %}&date={{ selected_date }}{% endif %}"
+       class="btn {{ 'btn-primary' if current_period == value else 'btn-secondary' }}"
+       style="text-decoration:none;font-size:0.8rem;padding:4px 12px;">
+        {{ label }}
+    </a>
+    {% endfor %}
+    {% if current_period == 'day' %}
+    <input type="date" id="date-picker" value="{{ selected_date }}"
+           style="font-size:0.8rem;padding:4px 8px;background:var(--bg-card,#1e1e2e);color:var(--text,#eee);border:1px solid var(--border,#333);border-radius:4px;"
+           onchange="location.href='/?mode={{ current_mode }}&period=day&date='+this.value">
+    {% endif %}
 </div>
 
 <div class="summary-row">
@@ -216,9 +230,15 @@ function formatDelta(val) {
     return '<span class="' + cls + '" style="font-size:0.8rem">(' + text + ')</span>';
 }
 var currentMode = '{{ current_mode }}';
-var modeParam = currentMode !== 'all' ? '?mode=' + currentMode : '';
+var currentPeriod = '{{ current_period }}';
+var selectedDate = '{{ selected_date or '' }}';
+var apiParams = [];
+if (currentMode !== 'all') apiParams.push('mode=' + currentMode);
+if (currentPeriod) apiParams.push('period=' + currentPeriod);
+if (currentPeriod === 'day' && selectedDate) apiParams.push('date=' + selectedDate);
+var apiQuery = apiParams.length ? '?' + apiParams.join('&') : '';
 function refreshStats() {
-    fetchJSON('/api/stats/today' + modeParam, function(data) {
+    fetchJSON('/api/stats/today' + apiQuery, function(data) {
         document.getElementById('wins').textContent = data.wins;
         document.getElementById('losses').textContent = data.losses;
         document.getElementById('winrate').textContent = data.winrate + '%';
