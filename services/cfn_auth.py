@@ -337,10 +337,17 @@ def auto_login(email=None, password=None):
         return _requests_login(email, password)
     except TwoFactorRequired:
         raise  # 2FA はフォールバックしない
-    except Exception as e:
-        if 'invalid email or password' in str(e).lower():
+    except Exception as req_err:
+        if 'invalid email or password' in str(req_err).lower():
             raise  # 認証情報エラーはフォールバックしない
-        c.log(f'Requests login failed: {e}, trying Playwright fallback...')
+        c.log(f'Requests login failed: {req_err}, trying Playwright fallback...')
+        if not is_playwright_available():
+            raise Exception(
+                f'Requests login failed: {req_err}\n'
+                f'Playwright is not installed for fallback.\n'
+                f'Either fix the requests error above, or install Playwright:\n'
+                f'  pip install playwright && playwright install chromium'
+            )
         return _playwright_login(email, password)
 
 
