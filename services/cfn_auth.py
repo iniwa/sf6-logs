@@ -139,12 +139,12 @@ def _requests_login(email, password):
     })
 
     # Step 1: Auth config を取得
-    # Buckler /auth/login → CID → Auth0 login page へリダイレクトチェーン
-    # 自動リダイレクトだとエラーページに飛ぶため、手動で追跡する
+    # /6/buckler/ja-jp/auth/loginep → CID → Auth0 login page へリダイレクトチェーン
+    # ロケール (ja-jp) をパスに含めないと undefined エラーになる
     c.log('Auto-login: fetching auth config...')
     resp = session.get(
-        f'{BUCKLER_BASE}/6/buckler/auth/login',
-        params={'redirect_url': '/?status=login'},
+        f'{BUCKLER_BASE}/6/buckler/ja-jp/auth/loginep',
+        params={'redirect_url': '/'},
         timeout=15,
         allow_redirects=False,
     )
@@ -303,7 +303,7 @@ def _playwright_login(email, password):
         try:
             # Navigate to Buckler login
             page.goto(
-                f'{BUCKLER_BASE}/6/buckler/auth/login?redirect_url=/?status=login',
+                f'{BUCKLER_BASE}/6/buckler/ja-jp/auth/loginep?redirect_url=/',
                 timeout=30000,
             )
 
