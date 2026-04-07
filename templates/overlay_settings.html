@@ -183,6 +183,11 @@
                     <td style="color:var(--text-dim);font-size:0.85rem;">連勝/連敗の最高記録更新時の通知</td>
                     <td><input type="checkbox" name="popup_streak_record" {{ 'checked' if config.popup_streak_record == '1' }}></td>
                 </tr>
+                <tr>
+                    <td>Best MR</td>
+                    <td style="color:var(--text-dim);font-size:0.85rem;">最高 MR 更新時の通知</td>
+                    <td><input type="checkbox" name="popup_best_mr" {{ 'checked' if config.popup_best_mr == '1' }}></td>
+                </tr>
             </tbody>
         </table>
         <div style="margin-top: 12px;">

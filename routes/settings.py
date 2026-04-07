@@ -67,6 +67,7 @@ def save_popup_notifications():
         'popup_match_result', 'popup_lp_mr_delta',
         'popup_rank_change', 'popup_mr_milestone',
         'popup_streak_record',
+        'popup_best_mr',
     ]
     for key in popup_keys:
         val = '1' if request.form.get(key) else '0'

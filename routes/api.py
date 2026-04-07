@@ -26,6 +26,7 @@ def _notify_clients(match_dict):
     popup_rank = storage.get_config('popup_rank_change', '1') == '1'
     popup_mr_ms = storage.get_config('popup_mr_milestone', '1') == '1'
     popup_streak = storage.get_config('popup_streak_record', '1') == '1'
+    popup_best_mr = storage.get_config('popup_best_mr', '1') == '1'
 
     # 最新マッチ情報を event: match で送信
     match_msg = ""
@@ -41,6 +42,8 @@ def _notify_clients(match_dict):
         if ms['type'] == 'rank_change' and not popup_rank:
             continue
         if ms['type'] in ('mr_milestone', 'master_reached') and not popup_mr_ms:
+            continue
+        if ms['type'] == 'best_mr' and not popup_best_mr:
             continue
         milestone_msgs.append(
             f"event: milestone\ndata: {json.dumps(ms, ensure_ascii=False)}\n\n"

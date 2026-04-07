@@ -149,6 +149,9 @@
                     <button class="btn btn-misc" onclick="simMilestone('streak_win')">Streak Record</button>
                     <button class="btn btn-misc" onclick="simMilestone('master')">MASTER</button>
                 </div>
+                <div class="btn-row">
+                    <button class="btn btn-misc" onclick="simMilestone('best_mr')">Best MR</button>
+                </div>
             </div>
 
             <div class="section">
@@ -306,13 +309,16 @@
                         data = {type: 'rank_change', rank: 'Diamond 1', promoted: true, label: '\u6607\u683C: Diamond 1'};
                         break;
                     case 'mr':
-                        data = {type: 'mr_milestone', value: 1500, label: 'MR 1500 \u5230\u9054!'};
+                        data = {type: 'mr_milestone', value: 1500, label: '1500 MASTER \u5230\u9054!'};
                         break;
                     case 'streak_win':
                         data = {type: 'streak_record', record_type: 'best_win', value: 10, label: '10\u9023\u52dd (New Record!)', is_new_record: true};
                         break;
                     case 'master':
                         data = {type: 'master_reached', label: 'MASTER \u30E9\u30F3\u30AF\u5230\u9054!'};
+                        break;
+                    case 'best_mr':
+                        data = {type: 'best_mr', value: 1580, label: '\u6700\u9AD8 MR \u66F4\u65B0! MR 1580'};
                         break;
                 }
                 pf.showMilestone(data);

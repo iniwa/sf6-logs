@@ -96,6 +96,9 @@ function updateStats(d) {}
         } else if (data.type === 'master_reached') {
             milestoneIcon.textContent = '\u2605';
             milestoneIcon.className = 'popup-milestone-icon popup-milestone-up';
+        } else if (data.type === 'best_mr') {
+            milestoneIcon.textContent = '\ud83c\udfc6';
+            milestoneIcon.className = 'popup-milestone-icon popup-milestone-up';
         } else if (data.type === 'streak_record') {
             milestoneIcon.textContent = data.record_type === 'best_win' ? '\ud83d\udd25' : '\u26a0';
             milestoneIcon.className = 'popup-milestone-icon ' + (data.record_type === 'best_win' ? 'popup-milestone-up' : 'popup-milestone-down');

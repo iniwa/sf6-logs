@@ -31,6 +31,7 @@ DEFAULT_CONFIG = {
     'popup_rank_change': '1',
     'popup_mr_milestone': '1',
     'popup_streak_record': '1',
+    'popup_best_mr': '1',
 }
 
 

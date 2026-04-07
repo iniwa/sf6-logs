@@ -484,7 +484,15 @@ RANK_THRESHOLDS = [
     (3000,  'Gold 3'),
 ]
 
-MR_MILESTONES = [2000, 1900, 1800, 1700, 1600, 1500, 1400, 1300, 1200, 1100, 1000]
+def _mr_milestones_between(low, high):
+    """low〜high の間にある 100 刻みの MR マイルストーンを返す"""
+    start = (low // 100 + 1) * 100
+    return list(range(start, high + 1, 100))
+
+
+def _mr_tier_label(mr_value):
+    """MR 値に対応する MASTER ティア名を返す"""
+    return f'{mr_value} MASTER'
 
 
 def _lp_to_rank(lp):
@@ -515,22 +523,23 @@ def check_milestone(match_dict):
                 'label': f'{"昇格" if promoted else "降格"}: {rank_after}',
             })
 
-    # MR マイルストーン
+    # MR マイルストーン (100 刻み、上限なし)
     mr_before = match_dict.get('mr_before')
     mr_after = match_dict.get('mr_after')
     if mr_before is not None and mr_after is not None:
-        for ms in MR_MILESTONES:
-            if mr_before < ms <= mr_after:
+        if mr_after > mr_before:
+            for ms in _mr_milestones_between(mr_before, mr_after):
                 notifications.append({
                     'type': 'mr_milestone',
                     'value': ms,
-                    'label': f'MR {ms} 到達!',
+                    'label': f'{_mr_tier_label(ms)} 到達!',
                 })
-            elif mr_before >= ms > mr_after:
+        elif mr_after < mr_before:
+            for ms in _mr_milestones_between(mr_after, mr_before):
                 notifications.append({
                     'type': 'mr_milestone',
                     'value': ms,
-                    'label': f'MR {ms} を下回りました',
+                    'label': f'{_mr_tier_label(ms)} を下回りました',
                     'down': True,
                 })
 
@@ -540,5 +549,18 @@ def check_milestone(match_dict):
             'type': 'master_reached',
             'label': 'MASTER ランク到達!',
         })
+
+    # 最高 MR 更新
+    if mr_after is not None:
+        best_mr_str = storage.get_config('best_mr')
+        best_mr = int(best_mr_str) if best_mr_str else 0
+        if mr_after > best_mr:
+            storage.set_config('best_mr', str(mr_after))
+            if best_mr > 0:  # 初回記録時は通知しない
+                notifications.append({
+                    'type': 'best_mr',
+                    'value': mr_after,
+                    'label': f'最高 MR 更新! MR {mr_after}',
+                })
 
     return notifications
