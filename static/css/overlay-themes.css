@@ -71,7 +71,6 @@ body {
 .history {
     display: flex;
     gap: calc(4px * var(--ovl-scale, 1));
-    align-items: center;
 }
 .history .dot {
     width: calc(16px * var(--ovl-scale, 1));
@@ -81,17 +80,8 @@ body {
 }
 .dot-win { background: var(--ovl-win); }
 .dot-lose { background: var(--ovl-lose); }
-.dot-latest {
-    width: calc(20px * var(--ovl-scale, 1));
-    height: calc(20px * var(--ovl-scale, 1));
-    box-shadow: 0 0 calc(4px * var(--ovl-scale, 1)) rgba(255, 255, 255, 0.6);
-}
-.history-label {
-    font-size: calc(10px * var(--ovl-scale, 1));
-    color: var(--ovl-muted);
-    margin-left: calc(2px * var(--ovl-scale, 1));
-    align-self: center;
-}
+.history .dot:nth-last-child(1) { opacity: 0.3; }
+.history .dot:nth-last-child(2) { opacity: 0.55; }
 
 /* --- Streak --- */
 .streak {

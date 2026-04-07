@@ -101,6 +101,7 @@
         <div style="display:flex;gap:8px;align-items:center;">
             <code id="ovl-url" style="flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:0.9rem;word-break:break-all;cursor:pointer;" onclick="copyGenerated()" title="Click to copy"></code>
             <button type="button" class="btn btn-success" onclick="copyGenerated()" style="white-space:nowrap;">Copy</button>
+            <a id="ovl-open" href="/overlay" target="_blank" class="btn btn-secondary" style="white-space:nowrap;text-decoration:none;">Preview</a>
         </div>
     </div>
 </div>
@@ -178,6 +179,8 @@ function buildUrls() {
     document.getElementById('ovl-url').textContent = baseUrl + type + qs;
     // Use relative URL for iframe preview (avoids host mismatch with proxies/tunnels)
     document.getElementById('ovl-preview').src = type + qs;
+    // Update preview link
+    document.getElementById('ovl-open').href = type + qs;
 }
 
 function copyGenerated() {
