@@ -158,10 +158,13 @@ def _requests_login(email, password):
         )
 
     auth_config = json.loads(base64.b64decode(match.group(1)).decode('utf-8'))
+    c.log(f'Auto-login: auth config keys: {list(auth_config.keys())}')
     client_id = auth_config.get('clientID')
     callback_url = auth_config.get('callbackURL')
     tenant = auth_config.get('auth0Tenant')
     extra = auth_config.get('extraParams', {})
+    c.log(f'Auto-login: clientID={client_id}, callbackURL={callback_url}, tenant={tenant}')
+    c.log(f'Auto-login: extraParams keys: {list(extra.keys())}')
 
     # Step 2: Auth0 にログイン
     c.log('Auto-login: authenticating with CAPCOM ID...')
