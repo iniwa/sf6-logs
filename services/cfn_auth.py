@@ -139,18 +139,23 @@ def _requests_login(email, password):
     })
 
     # Step 1: Auth config を取得
+    # Buckler /auth/login → CID → Auth0 login page へリダイレクトされる
     c.log('Auto-login: fetching auth config...')
     resp = session.get(
-        f'{BUCKLER_BASE}/6/buckler/auth/logineq',
+        f'{BUCKLER_BASE}/6/buckler/auth/login',
         params={'redirect_url': '/?status=login'},
         timeout=15,
     )
     resp.raise_for_status()
 
     # atob('...') から Base64 エンコードされた設定を抽出
+    # Auth0 Classic Universal Login ページに埋め込まれている
     match = re.search(r"atob\('([^']+)'\)", resp.text)
     if not match:
-        raise Exception('Auth config not found in login page')
+        raise Exception(
+            f'Auth config not found in login page '
+            f'(final url: {resp.url}, status: {resp.status_code})'
+        )
 
     auth_config = json.loads(base64.b64decode(match.group(1)).decode('utf-8'))
     client_id = auth_config.get('clientID')
@@ -267,7 +272,7 @@ def _playwright_login(email, password):
         try:
             # Navigate to Buckler login
             page.goto(
-                f'{BUCKLER_BASE}/6/buckler/auth/logineq?redirect_url=/?status=login',
+                f'{BUCKLER_BASE}/6/buckler/auth/login?redirect_url=/?status=login',
                 timeout=30000,
             )
 

@@ -33,7 +33,8 @@ Path: /6/buckler/_next/data/{buildId}/en/{resource}.json
 - **方式**: Cookie ベース
 - **ログインフロー**: CAPCOM ID (`cid.capcom.com`) でメール+パスワード認証 → OAuth リダイレクト → Buckler セッション Cookie 発行
 - **ログイン URL**: `https://cid.capcom.com/ja/login/?guidedBy=web`
-- **コールバック**: `https://www.streetfighter.com/6/buckler/auth/loginep?redirect_url=/`
+- **コールバック**: `https://www.streetfighter.com/6/buckler/auth/login?redirect_url=/`
+- **フロー**: Buckler `/auth/login` → CID (`cid.capcom.com`) → Auth0 (`auth.cid.capcom.com`) → CID callback → Buckler
 - **本アプリでの方式**: ユーザーがブラウザ DevTools からコピーした Cookie を Settings 画面に貼り付け
 
 ### エラーハンドリング
