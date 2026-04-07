@@ -124,8 +124,31 @@ function updateStats(d) {}
     window.showPopup = showPopup;
     window.showMilestone = showMilestone;
 
+    /* test モード: ポップアップを常時表示（OBS配置確認用） */
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('test') === '1') {
+        /* マッチポップアップをサンプル表示（非フェードアウト） */
+        resultEl.textContent = 'WIN';
+        resultEl.className = 'popup-result popup-win';
+        deltaEl.textContent = '+30 MR';
+        deltaEl.className = 'popup-delta popup-delta-pos';
+        opponentEl.textContent = 'vs. Ryu';
+        popup.classList.remove('popup-hidden');
+        popup.classList.add('popup-show');
+        popup.style.animation = 'none';
+
+        /* マイルストーンも表示 */
+        milestoneIcon.textContent = '\u2605';
+        milestoneIcon.className = 'popup-milestone-icon popup-milestone-up';
+        milestoneLabel.textContent = 'MR 1500 到達!';
+        milestonePopup.classList.remove('popup-hidden');
+        milestonePopup.classList.add('popup-show');
+        milestonePopup.style.animation = 'none';
+        return;
+    }
+
     /* preview モードでは SSE 接続しない */
-    if (new URLSearchParams(window.location.search).get('preview') === '1') return;
+    if (params.get('preview') === '1') return;
 
     /* SSE: event: match, milestone を購読 */
     if (typeof EventSource !== 'undefined') {

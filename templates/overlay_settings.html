@@ -105,6 +105,9 @@
         <label style="display:flex;align-items:center;gap:6px;color:var(--text-dim);font-size:0.85rem;cursor:pointer;">
             <input type="checkbox" id="ovl-streak" checked onchange="buildUrls()"> Streak
         </label>
+        <label id="ovl-test-wrap" style="display:none;align-items:center;gap:6px;color:var(--text-dim);font-size:0.85rem;cursor:pointer;">
+            <input type="checkbox" id="ovl-test" onchange="buildUrls()"> Test Display (常時表示)
+        </label>
     </div>
 
     <!-- Generated URL -->
@@ -188,6 +191,28 @@
     </form>
 </div>
 
+<!-- OBS Browser Source Recommended Resolutions -->
+<div class="card">
+    <h2>OBS Browser Source — Recommended Resolutions</h2>
+    <p style="margin-bottom: 12px; color: var(--text-dim); font-size: 0.9rem;">
+        OBS のブラウザソース追加時に設定する幅・高さの参考値です。レイアウトやサイズ設定で調整してください。
+    </p>
+    <table>
+        <thead><tr><th>Type</th><th>Width</th><th>Height</th><th>Notes</th></tr></thead>
+        <tbody>
+            <tr><td>Full (Vertical)</td><td>500</td><td>180</td><td>W/L + LP/MR + 履歴ドットすべて表示</td></tr>
+            <tr><td>Full (Horizontal)</td><td>700</td><td>100</td><td>横並びレイアウト時</td></tr>
+            <tr><td>Record Only</td><td>300</td><td>80</td><td>W/L と勝率のみ</td></tr>
+            <tr><td>LP / MR Only</td><td>250</td><td>60</td><td>現在値 + 差分のみ</td></tr>
+            <tr><td>Match History</td><td>500</td><td>60</td><td>直近の勝敗ドット列</td></tr>
+            <tr><td>Popup Notification</td><td>400</td><td>200</td><td>マッチ結果 + マイルストーン通知 (右上/右下配置)</td></tr>
+        </tbody>
+    </table>
+    <p style="margin-top: 8px; color: var(--text-dim); font-size: 0.8rem;">
+        ※ Popup は常時表示ではなくイベント発生時のみ表示されます。Size を Large にする場合は各値を 1.3〜1.5 倍にしてください。
+    </p>
+</div>
+
 <!-- All Overlay URLs -->
 <div class="card">
     <h2>All Overlay URLs</h2>
@@ -230,14 +255,22 @@ function buildUrls() {
     var mode = document.getElementById('ovl-mode').value;
     var anim = document.getElementById('ovl-anim').checked;
     var streak = document.getElementById('ovl-streak').checked;
+    var test = document.getElementById('ovl-test').checked;
+
+    var isPopup = (type === '/overlay/popup');
+
+    // Popup 選択時のみ Test Display を表示
+    document.getElementById('ovl-test-wrap').style.display = isPopup ? 'flex' : 'none';
+    if (!isPopup) document.getElementById('ovl-test').checked = false;
 
     var params = [];
     if (theme !== 'dark') params.push('theme=' + theme);
     if (size !== 'medium') params.push('size=' + size);
-    if (layout !== 'vertical') params.push('layout=' + layout);
+    if (!isPopup && layout !== 'vertical') params.push('layout=' + layout);
     if (mode !== 'all') params.push('mode=' + mode);
-    if (!anim) params.push('anim=0');
-    if (!streak) params.push('streak=0');
+    if (!isPopup && !anim) params.push('anim=0');
+    if (!isPopup && !streak) params.push('streak=0');
+    if (isPopup && test) params.push('test=1');
 
     var qs = params.length > 0 ? '?' + params.join('&') : '';
 
@@ -247,6 +280,14 @@ function buildUrls() {
     document.getElementById('ovl-preview').src = type + qs;
     // Update preview link
     document.getElementById('ovl-open').href = type + qs;
+
+    // Popup 時はプレビュー高さを自動調整
+    var iframe = document.getElementById('ovl-preview');
+    if (isPopup) {
+        iframe.style.height = '220px';
+        document.getElementById('preview-height').value = 220;
+        document.getElementById('preview-height-label').textContent = '220px';
+    }
 }
 
 function copyGenerated() {
