@@ -41,6 +41,6 @@ function updateStats(d) {
     }
 }
 function refresh() {
-    fetch('/api/stats/today' + (modeParam ? '?' + modeParam : '')).then(function(r) { return r.json(); }).then(updateStats);
+    fetch('/api/stats/session' + (modeParam ? '?' + modeParam : '')).then(function(r) { return r.json(); }).then(updateStats);
 }
 {% endblock %}

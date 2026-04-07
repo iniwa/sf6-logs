@@ -3,8 +3,9 @@
 <div class="overlay">
     <div class="history" id="history">
         {% for r in recent %}
-        <span class="dot {{ 'dot-win' if r.result == 'win' else 'dot-lose' }}"></span>
+        <span class="dot {{ 'dot-win' if r.result == 'win' else 'dot-lose' }}{{ ' dot-latest' if loop.first else '' }}"></span>
         {% endfor %}
+        <span class="history-label">new</span>
     </div>
 </div>
 {% endblock %}
@@ -24,9 +25,14 @@ function refreshHistory() {
             matches.forEach(function(m, i) {
                 var dot = document.createElement('span');
                 dot.className = 'dot ' + (m.result === 'win' ? 'dot-win' : 'dot-lose');
+                if (i === 0) dot.classList.add('dot-latest');
                 if (hadPrev && changed && i === 0) dot.classList.add('dot-new');
                 hist.appendChild(dot);
             });
+            var label = document.createElement('span');
+            label.className = 'history-label';
+            label.textContent = 'new';
+            hist.appendChild(label);
         });
 }
 function refresh() { refreshHistory(); }

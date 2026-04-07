@@ -18,7 +18,7 @@ _sse_lock = threading.Lock()
 
 
 def _notify_clients(match_dict):
-    today = stats.get_today_stats()
+    today = stats.get_session_stats()
     stats_msg = f"event: stats\ndata: {json.dumps(today, ensure_ascii=False)}\n\n"
 
     # 最新マッチ情報を event: match で送信
@@ -128,7 +128,7 @@ def stream():
     def generate():
         try:
             # 接続時に現在の stats を送信
-            today = stats.get_today_stats()
+            today = stats.get_session_stats()
             yield f"event: stats\ndata: {json.dumps(today, ensure_ascii=False)}\n\n"
             while True:
                 try:

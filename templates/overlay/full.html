@@ -7,6 +7,7 @@
         <span class="losses" id="losses">L{{ today.losses }}</span>
         <span class="winrate" id="winrate">({{ today.winrate }}%)</span>
     </div>
+    {% if mode != 'custom' %}
     <div class="lp-row">
         {% if today.is_master %}
         <span id="rating-label">MR</span>: <span class="value" id="rating">{{ today.mr if today.mr is not none else '-' }}</span>
@@ -16,15 +17,25 @@
         <span id="rating-delta" class="{{ 'delta-pos' if today.lp_delta and today.lp_delta > 0 else 'delta-neg' if today.lp_delta and today.lp_delta < 0 else '' }}">{% if today.lp_delta is not none %}({{ '+%d' % today.lp_delta if today.lp_delta >= 0 else today.lp_delta }}){% endif %}</span>
         {% endif %}
         {% if streak and today.streak and today.streak != 0 %}
-        <span class="streak streak-inline {{ 'streak-win' if today.streak > 0 else 'streak-lose' }}" id="streak">{{ '▲' ~ today.streak if today.streak > 0 else '▼' ~ (today.streak | abs) }}</span>
+        <span class="streak streak-inline {{ 'streak-win' if today.streak > 0 else 'streak-lose' }}" id="streak">{{ (today.streak ~ '連勝') if today.streak > 0 else ((today.streak | abs) ~ '連敗') }}</span>
         {% else %}
         <span class="streak streak-inline" id="streak" style="display:none;"></span>
         {% endif %}
     </div>
+    {% else %}
+    <div class="lp-row">
+        {% if streak and today.streak and today.streak != 0 %}
+        <span class="streak streak-inline {{ 'streak-win' if today.streak > 0 else 'streak-lose' }}" id="streak">{{ (today.streak ~ '連勝') if today.streak > 0 else ((today.streak | abs) ~ '連敗') }}</span>
+        {% else %}
+        <span class="streak streak-inline" id="streak" style="display:none;"></span>
+        {% endif %}
+    </div>
+    {% endif %}
     <div class="history" id="history">
         {% for r in recent %}
-        <span class="dot {{ 'dot-win' if r.result == 'win' else 'dot-lose' }}"></span>
+        <span class="dot {{ 'dot-win' if r.result == 'win' else 'dot-lose' }}{{ ' dot-latest' if loop.first else '' }}"></span>
         {% endfor %}
+        <span class="history-label">new</span>
     </div>
 </div>
 {% endblock %}
@@ -72,7 +83,7 @@ function updateStats(d) {
     if (streakEl && _showStreak) {
         var s = d.streak || 0;
         if (s !== 0) {
-            streakEl.textContent = s > 0 ? '\u25B2' + s : '\u25BC' + Math.abs(s);
+            streakEl.textContent = s > 0 ? s + '連勝' : Math.abs(s) + '連敗';
             streakEl.className = 'streak streak-inline ' + (s > 0 ? 'streak-win' : 'streak-lose');
             streakEl.style.display = '';
         } else {
@@ -96,14 +107,19 @@ function refreshHistory() {
             matches.forEach(function(m, i) {
                 var dot = document.createElement('span');
                 dot.className = 'dot ' + (m.result === 'win' ? 'dot-win' : 'dot-lose');
+                if (i === 0) dot.classList.add('dot-latest');
                 if (hadPrev && changed && i === 0) dot.classList.add('dot-new');
                 hist.appendChild(dot);
             });
+            var label = document.createElement('span');
+            label.className = 'history-label';
+            label.textContent = 'new';
+            hist.appendChild(label);
         });
 }
 
 function refresh() {
-    fetch('/api/stats/today' + (modeParam ? '?' + modeParam : '')).then(function(r) { return r.json(); }).then(updateStats);
+    fetch('/api/stats/session' + (modeParam ? '?' + modeParam : '')).then(function(r) { return r.json(); }).then(updateStats);
     refreshHistory();
 }
 {% endblock %}

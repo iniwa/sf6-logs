@@ -7,7 +7,7 @@
         <span class="losses" id="losses">L{{ today.losses }}</span>
         <span class="winrate" id="winrate">({{ today.winrate }}%)</span>
         {% if streak and today.streak and today.streak != 0 %}
-        <span class="streak {{ 'streak-win' if today.streak > 0 else 'streak-lose' }}" id="streak">{{ '▲' ~ today.streak if today.streak > 0 else '▼' ~ (today.streak | abs) }}</span>
+        <span class="streak {{ 'streak-win' if today.streak > 0 else 'streak-lose' }}" id="streak">{{ (today.streak ~ '連勝') if today.streak > 0 else ((today.streak | abs) ~ '連敗') }}</span>
         {% else %}
         <span class="streak" id="streak" style="display:none;"></span>
         {% endif %}
@@ -42,7 +42,7 @@ function updateStats(d) {
     if (streakEl && _showStreak) {
         var s = d.streak || 0;
         if (s !== 0) {
-            streakEl.textContent = s > 0 ? '\u25B2' + s : '\u25BC' + Math.abs(s);
+            streakEl.textContent = s > 0 ? s + '連勝' : Math.abs(s) + '連敗';
             streakEl.className = 'streak ' + (s > 0 ? 'streak-win' : 'streak-lose');
             streakEl.style.display = '';
         } else {
@@ -51,6 +51,6 @@ function updateStats(d) {
     }
 }
 function refresh() {
-    fetch('/api/stats/today' + (modeParam ? '?' + modeParam : '')).then(function(r) { return r.json(); }).then(updateStats);
+    fetch('/api/stats/session' + (modeParam ? '?' + modeParam : '')).then(function(r) { return r.json(); }).then(updateStats);
 }
 {% endblock %}

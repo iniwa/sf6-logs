@@ -27,7 +27,7 @@ def _overlay_context():
     if mode not in VALID_MODES:
         mode = 'all'
     bt = mode if mode != 'all' else None
-    today = stats.get_today_stats(battle_type=bt)
+    today = stats.get_session_stats(battle_type=bt)
     recent = stats.get_recent_results(count=10, battle_type=bt)
     return {
         'theme': theme,
