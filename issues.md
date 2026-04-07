@@ -15,7 +15,7 @@
 
 ## 自動ログイン関連
 
-- [ ] 自動ログイン機能の実機テスト（ラズパイ Docker 環境）
+- [x] 自動ログイン機能の実機テスト（ラズパイ Docker 環境）— エンドポイント変更対応済み (`loginep`)
 - [ ] Cookie 有効期限の実測（どの程度で失効するか確認）
 - [x] 2FA 有効ユーザーへの対応（TwoFactorRequired 例外で検出・通知）
 - [x] Auth0 側の仕様変更・CAPTCHA 追加時の対策（Playwright fallback 実装済み）

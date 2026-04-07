@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Overlay Preview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #1a1a2e; color: #eee; font-family: 'Segoe UI', sans-serif; padding: 24px; }
+        h1 { font-size: 18px; margin-bottom: 16px; color: #aaa; }
+
+        .preview-container { display: flex; gap: 32px; align-items: flex-start; }
+
+        .preview-frame {
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 32px;
+            min-width: 400px;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .preview-frame iframe {
+            border: none;
+            width: 500px;
+            height: 180px;
+            background: transparent;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 220px;
+        }
+        .controls h2 { font-size: 14px; color: #888; margin-bottom: 4px; }
+
+        .btn-row { display: flex; gap: 8px; }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: filter 0.15s;
+        }
+        .btn:hover { filter: brightness(1.2); }
+        .btn:active { filter: brightness(0.9); }
+
+        .btn-win { background: #4ecca3; color: #000; }
+        .btn-lose { background: #e94560; color: #fff; }
+        .btn-reset { background: #555; color: #fff; }
+        .btn-misc { background: #335; color: #ccc; }
+
+        .state-display {
+            background: #111;
+            border-radius: 6px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #8f8;
+            white-space: pre;
+            line-height: 1.6;
+        }
+
+        .section { border-top: 1px solid #333; padding-top: 12px; }
+
+        select, input[type=number] {
+            background: #222;
+            color: #eee;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 13px;
+        }
+        label { font-size: 13px; color: #aaa; }
+        .param-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    </style>
+</head>
+<body>
+    <h1>Overlay Animation Preview</h1>
+    <div class="preview-container">
+        <div>
+            <div class="preview-frame">
+                <iframe id="ovl-frame" src="/overlay?streak=1"></iframe>
+            </div>
+            <div style="margin-top: 12px;">
+                <div class="param-row">
+                    <label>Theme:</label>
+                    <select id="opt-theme"><option value="dark">dark</option><option value="sf6">sf6</option></select>
+                    <label>Size:</label>
+                    <select id="opt-size"><option value="small">small</option><option value="medium" selected>medium</option><option value="large">large</option></select>
+                    <label>Layout:</label>
+                    <select id="opt-layout"><option value="vertical">vertical</option><option value="horizontal">horizontal</option></select>
+                </div>
+                <button class="btn btn-misc" onclick="reloadFrame()">Reload overlay</button>
+            </div>
+        </div>
+
+        <div class="controls">
+            <h2>Simulate match result</h2>
+            <div class="btn-row">
+                <button class="btn btn-win" onclick="simWin()">Win</button>
+                <button class="btn btn-lose" onclick="simLose()">Lose</button>
+            </div>
+
+            <div class="section">
+                <h2>Streak control</h2>
+                <div class="btn-row">
+                    <button class="btn btn-win" onclick="simStreak(3)">3 Win streak</button>
+                    <button class="btn btn-lose" onclick="simStreak(-3)">3 Lose streak</button>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-misc" onclick="simStreak(0)">Streak reset</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>MR control</h2>
+                <div class="btn-row">
+                    <button class="btn btn-misc" onclick="simMR(50)">MR +50</button>
+                    <button class="btn btn-misc" onclick="simMR(-50)">MR -50</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Reset</h2>
+                <button class="btn btn-reset" onclick="simReset()">Reset all</button>
+            </div>
+
+            <div class="section">
+                <h2>Current state</h2>
+                <div class="state-display" id="state-display">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var state = {
+            wins: 5, losses: 3, winrate: 63,
+            is_master: true, mr: 1500, mr_delta: 120,
+            lp: null, lp_delta: null,
+            streak: 2
+        };
+        var history = [
+            {result:'win'},{result:'win'},{result:'lose'},{result:'win'},
+            {result:'win'},{result:'lose'},{result:'win'},{result:'lose'},
+            {result:'win'},{result:'win'}
+        ];
+
+        function getFrame() {
+            return document.getElementById('ovl-frame').contentWindow;
+        }
+
+        function pushState() {
+            try {
+                var fw = getFrame();
+                if (typeof fw.updateStats === 'function') fw.updateStats(state);
+                if (typeof fw.refreshHistory === 'function') {
+                    // override fetch temporarily to return mock history
+                    var origFetch = fw.fetch;
+                    fw.fetch = function(url) {
+                        if (url.indexOf('/api/matches') !== -1) {
+                            return Promise.resolve({ json: function() { return Promise.resolve(history); } });
+                        }
+                        if (url.indexOf('/api/stats/today') !== -1) {
+                            return Promise.resolve({ json: function() { return Promise.resolve(state); } });
+                        }
+                        return origFetch.apply(this, arguments);
+                    };
+                    fw.refreshHistory();
+                    // restore after a tick
+                    setTimeout(function() { fw.fetch = origFetch; }, 100);
+                }
+            } catch(e) { console.warn('Frame not ready', e); }
+            renderState();
+        }
+
+        function renderState() {
+            var s = state;
+            var txt = 'W' + s.wins + ' / L' + s.losses + ' (' + s.winrate + '%)\n';
+            txt += 'MR: ' + s.mr + ' (' + (s.mr_delta >= 0 ? '+' : '') + s.mr_delta + ')\n';
+            txt += 'Streak: ' + (s.streak > 0 ? '▲' + s.streak : s.streak < 0 ? '▼' + Math.abs(s.streak) : '---');
+            document.getElementById('state-display').textContent = txt;
+        }
+
+        function recalcWinrate() {
+            var total = state.wins + state.losses;
+            state.winrate = total > 0 ? Math.round(state.wins / total * 100) : 0;
+        }
+
+        function simWin() {
+            state.wins++;
+            state.mr += 30;
+            state.mr_delta += 30;
+            state.streak = state.streak > 0 ? state.streak + 1 : 1;
+            recalcWinrate();
+            history.unshift({id: Date.now(), result: 'win'});
+            if (history.length > 10) history.pop();
+            pushState();
+        }
+
+        function simLose() {
+            state.losses++;
+            state.mr -= 30;
+            state.mr_delta -= 30;
+            state.streak = state.streak < 0 ? state.streak - 1 : -1;
+            recalcWinrate();
+            history.unshift({id: Date.now(), result: 'lose'});
+            if (history.length > 10) history.pop();
+            pushState();
+        }
+
+        function simStreak(n) {
+            state.streak = n;
+            pushState();
+        }
+
+        function simMR(delta) {
+            state.mr += delta;
+            state.mr_delta += delta;
+            pushState();
+        }
+
+        function simReset() {
+            state = {
+                wins: 0, losses: 0, winrate: 0,
+                is_master: true, mr: 1500, mr_delta: 0,
+                lp: null, lp_delta: null,
+                streak: 0
+            };
+            history = [];
+            pushState();
+        }
+
+        function reloadFrame() {
+            var t = document.getElementById('opt-theme').value;
+            var s = document.getElementById('opt-size').value;
+            var l = document.getElementById('opt-layout').value;
+            var url = '/overlay?streak=1&theme=' + t + '&size=' + s + '&layout=' + l;
+            document.getElementById('ovl-frame').src = url;
+        }
+
+        // initial push after iframe loads
+        document.getElementById('ovl-frame').addEventListener('load', function() {
+            setTimeout(pushState, 300);
+        });
+        renderState();
+    </script>
+</body>
+</html>

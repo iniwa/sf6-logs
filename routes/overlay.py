@@ -64,3 +64,8 @@ def history():
 @bp.route('/overlay/popup')
 def popup():
     return render_template('overlay/popup.html', **_overlay_context())
+
+
+@bp.route('/overlay/preview')
+def preview():
+    return render_template('overlay/preview.html')

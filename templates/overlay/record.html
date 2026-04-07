@@ -7,7 +7,7 @@
         <span class="losses" id="losses">L{{ today.losses }}</span>
         <span class="winrate" id="winrate">({{ today.winrate }}%)</span>
         {% if streak and today.streak and today.streak != 0 %}
-        <span class="streak {{ 'streak-win' if today.streak > 0 else 'streak-lose' }}" id="streak">{{ '\U0001f525' ~ today.streak if today.streak > 0 else '\u2744' ~ (today.streak | abs) }}</span>
+        <span class="streak {{ 'streak-win' if today.streak > 0 else 'streak-lose' }}" id="streak">{{ '▲' ~ today.streak if today.streak > 0 else '▼' ~ (today.streak | abs) }}</span>
         {% else %}
         <span class="streak" id="streak" style="display:none;"></span>
         {% endif %}
@@ -42,7 +42,7 @@ function updateStats(d) {
     if (streakEl && _showStreak) {
         var s = d.streak || 0;
         if (s !== 0) {
-            streakEl.textContent = s > 0 ? '\uD83D\uDD25' + s : '\u2744' + Math.abs(s);
+            streakEl.textContent = s > 0 ? '\u25B2' + s : '\u25BC' + Math.abs(s);
             streakEl.className = 'streak ' + (s > 0 ? 'streak-win' : 'streak-lose');
             streakEl.style.display = '';
         } else {

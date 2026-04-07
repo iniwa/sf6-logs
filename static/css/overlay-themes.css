@@ -88,6 +88,12 @@ body {
     margin-left: calc(8px * var(--ovl-scale, 1));
     vertical-align: middle;
 }
+.streak-inline {
+    font-size: calc(14px * var(--ovl-scale, 1));
+    font-weight: 700;
+    margin-left: calc(6px * var(--ovl-scale, 1));
+    vertical-align: baseline;
+}
 .streak-win { color: var(--ovl-streak-win); }
 .streak-lose { color: var(--ovl-streak-lose); }
 
