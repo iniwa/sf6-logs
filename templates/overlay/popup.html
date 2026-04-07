@@ -7,6 +7,10 @@
         <span class="popup-opponent" id="popup-opponent"></span>
     </div>
 </div>
+<div id="milestone-popup" class="popup-notification popup-milestone popup-hidden">
+    <div class="popup-milestone-icon" id="milestone-icon"></div>
+    <div class="popup-milestone-label" id="milestone-label"></div>
+</div>
 {% endblock %}
 {% block scripts %}
 /* popup overlay: stats/refresh は不要なので空実装 */
@@ -17,7 +21,13 @@ function updateStats(d) {}
     var resultEl = document.getElementById('popup-result');
     var deltaEl = document.getElementById('popup-delta');
     var opponentEl = document.getElementById('popup-opponent');
+    var milestonePopup = document.getElementById('milestone-popup');
+    var milestoneIcon = document.getElementById('milestone-icon');
+    var milestoneLabel = document.getElementById('milestone-label');
     var hideTimer = null;
+    var milestoneTimer = null;
+    var milestoneQueue = [];
+    var milestoneShowing = false;
 
     function showPopup(match) {
         /* 結果テキスト */
@@ -66,19 +76,71 @@ function updateStats(d) {}
         }, 5000);
     }
 
+    function showMilestone(data) {
+        milestoneQueue.push(data);
+        if (!milestoneShowing) processNextMilestone();
+    }
+
+    function processNextMilestone() {
+        if (milestoneQueue.length === 0) { milestoneShowing = false; return; }
+        milestoneShowing = true;
+        var data = milestoneQueue.shift();
+
+        /* アイコン設定 */
+        if (data.type === 'rank_change') {
+            milestoneIcon.textContent = data.promoted ? '\u2191' : '\u2193';
+            milestoneIcon.className = 'popup-milestone-icon ' + (data.promoted ? 'popup-milestone-up' : 'popup-milestone-down');
+        } else if (data.type === 'mr_milestone') {
+            milestoneIcon.textContent = data.down ? '\u2193' : '\u2605';
+            milestoneIcon.className = 'popup-milestone-icon ' + (data.down ? 'popup-milestone-down' : 'popup-milestone-up');
+        } else if (data.type === 'master_reached') {
+            milestoneIcon.textContent = '\u2605';
+            milestoneIcon.className = 'popup-milestone-icon popup-milestone-up';
+        } else if (data.type === 'streak_record') {
+            milestoneIcon.textContent = data.record_type === 'best_win' ? '\ud83d\udd25' : '\u26a0';
+            milestoneIcon.className = 'popup-milestone-icon ' + (data.record_type === 'best_win' ? 'popup-milestone-up' : 'popup-milestone-down');
+        } else {
+            milestoneIcon.textContent = '\u2605';
+            milestoneIcon.className = 'popup-milestone-icon';
+        }
+
+        milestoneLabel.textContent = data.label || '';
+
+        if (milestoneTimer) clearTimeout(milestoneTimer);
+        milestonePopup.classList.remove('popup-hidden', 'popup-fadeout');
+        milestonePopup.classList.add('popup-show');
+
+        milestoneTimer = setTimeout(function() {
+            milestonePopup.classList.add('popup-fadeout');
+            setTimeout(function() {
+                milestonePopup.classList.remove('popup-show', 'popup-fadeout');
+                milestonePopup.classList.add('popup-hidden');
+                setTimeout(processNextMilestone, 300);
+            }, 600);
+        }, 6000);
+    }
+
     /* 外部（プレビュー親ウィンドウ）から呼べるように公開 */
     window.showPopup = showPopup;
+    window.showMilestone = showMilestone;
 
     /* preview モードでは SSE 接続しない */
     if (new URLSearchParams(window.location.search).get('preview') === '1') return;
 
-    /* SSE: event: match を直接購読 */
+    /* SSE: event: match, milestone を購読 */
     if (typeof EventSource !== 'undefined') {
         var es = new EventSource('/api/stream');
         es.addEventListener('match', function(e) {
             try {
                 var match = JSON.parse(e.data);
                 showPopup(match);
+            } catch (err) {}
+        });
+        es.addEventListener('milestone', function(e) {
+            try {
+                var data = JSON.parse(e.data);
+                /* 6秒遅延で表示（matchポップアップと重ならないように） */
+                setTimeout(function() { showMilestone(data); }, 6000);
             } catch (err) {}
         });
         es.onerror = function() {

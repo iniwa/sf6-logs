@@ -24,6 +24,18 @@
     </div>
 </div>
 
+<!-- Session History -->
+<div class="card">
+    <h2>Session History</h2>
+    <table id="session-history-table">
+        <thead>
+            <tr><th>Label</th><th>Started</th><th>Ended</th><th>W</th><th>L</th><th>Win Rate</th><th>Total</th></tr>
+        </thead>
+        <tbody id="session-history-body">
+        </tbody>
+    </table>
+</div>
+
 <!-- Overlay Builder -->
 <div class="card">
     <h2>Overlay URL Builder</h2>
@@ -131,6 +143,51 @@
     </div>
 </div>
 
+<!-- Popup Notification Settings -->
+<div class="card">
+    <h2>Popup Notification Settings</h2>
+    <p style="margin-bottom: 12px; color: var(--text-dim); font-size: 0.9rem;">
+        OBS Popup Overlay に表示される通知の種類を ON/OFF できます。
+    </p>
+    <form method="POST" action="/settings/popup_notifications">
+        <table>
+            <thead>
+                <tr><th>Notification</th><th>Description</th><th>Enabled</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Match Result</td>
+                    <td style="color:var(--text-dim);font-size:0.85rem;">WIN/LOSE の結果表示</td>
+                    <td><input type="checkbox" name="popup_match_result" {{ 'checked' if config.popup_match_result == '1' }}></td>
+                </tr>
+                <tr>
+                    <td>LP/MR Delta</td>
+                    <td style="color:var(--text-dim);font-size:0.85rem;">LP/MR の増減値</td>
+                    <td><input type="checkbox" name="popup_lp_mr_delta" {{ 'checked' if config.popup_lp_mr_delta == '1' }}></td>
+                </tr>
+                <tr>
+                    <td>Rank Change</td>
+                    <td style="color:var(--text-dim);font-size:0.85rem;">ランク昇格/降格の通知</td>
+                    <td><input type="checkbox" name="popup_rank_change" {{ 'checked' if config.popup_rank_change == '1' }}></td>
+                </tr>
+                <tr>
+                    <td>MR Milestone</td>
+                    <td style="color:var(--text-dim);font-size:0.85rem;">MR 1000/1100/...到達時の通知</td>
+                    <td><input type="checkbox" name="popup_mr_milestone" {{ 'checked' if config.popup_mr_milestone == '1' }}></td>
+                </tr>
+                <tr>
+                    <td>Streak Record</td>
+                    <td style="color:var(--text-dim);font-size:0.85rem;">連勝/連敗の最高記録更新時の通知</td>
+                    <td><input type="checkbox" name="popup_streak_record" {{ 'checked' if config.popup_streak_record == '1' }}></td>
+                </tr>
+            </tbody>
+        </table>
+        <div style="margin-top: 12px;">
+            <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+    </form>
+</div>
+
 <!-- All Overlay URLs -->
 <div class="card">
     <h2>All Overlay URLs</h2>
@@ -213,5 +270,29 @@ function resizePreview() {
 
 // Init
 buildUrls();
+
+// Session History
+fetchJSON('/api/sessions', function(sessions) {
+    var tbody = document.getElementById('session-history-body');
+    if (!sessions || sessions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-dim);text-align:center;">No sessions yet</td></tr>';
+        return;
+    }
+    var html = '';
+    sessions.forEach(function(s) {
+        var started = s.started_at ? s.started_at.substring(5, 16).replace('T', ' ') : '';
+        var ended = s.ended_at ? s.ended_at.substring(5, 16).replace('T', ' ') : 'Active';
+        html += '<tr>';
+        html += '<td>' + (s.label || '(no label)') + '</td>';
+        html += '<td>' + started + '</td>';
+        html += '<td>' + ended + '</td>';
+        html += '<td class="result-win">' + s.wins + '</td>';
+        html += '<td class="result-lose">' + s.losses + '</td>';
+        html += '<td>' + s.winrate + '%</td>';
+        html += '<td>' + s.total + '</td>';
+        html += '</tr>';
+    });
+    tbody.innerHTML = html;
+});
 </script>
 {% endblock %}

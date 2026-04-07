@@ -176,6 +176,8 @@ def _parse_replay(replay, my_short_id):
         'lp_after': me.get('league_point'),
         'mr_before': None,
         'mr_after': me.get('master_rating'),
+        'opp_lp': opp.get('league_point'),
+        'opp_mr': opp.get('master_rating'),
         'raw_data': replay,
     }
 
@@ -204,6 +206,8 @@ def _generate_mock_matches():
 
         played_at = now - timedelta(minutes=random.randint(1, 5), seconds=random.randint(0, 59))
 
+        opp_mr_val = random.randint(1000, 2200)
+
         match = {
             'replay_id': f'MOCK-{uuid.uuid4().hex[:12]}',
             'played_at': played_at.isoformat(),
@@ -216,6 +220,8 @@ def _generate_mock_matches():
             'lp_after': lp_after,
             'mr_before': mr_base,
             'mr_after': mr_after,
+            'opp_lp': None,
+            'opp_mr': opp_mr_val,
             'raw_data': None,
         }
         matches.append(match)

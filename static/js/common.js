@@ -40,6 +40,21 @@ function updateStatus() {
     });
 }
 
+function setTheme(theme) {
+    document.body.className = theme;
+    localStorage.setItem('dashboard_theme', theme);
+}
+
+// Apply saved theme on load
+(function() {
+    var saved = localStorage.getItem('dashboard_theme');
+    if (saved) {
+        document.body.className = saved;
+        var sel = document.getElementById('theme-select');
+        if (sel) sel.value = saved;
+    }
+})();
+
 document.addEventListener('DOMContentLoaded', function() {
     updateStatus();
     setInterval(updateStatus, 10000);

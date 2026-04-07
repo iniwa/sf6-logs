@@ -179,6 +179,31 @@ input:focus, textarea:focus, select:focus {
 /* === Collapsible === */
 table.collapsed tbody { display: none; }
 
+/* === Dashboard Themes === */
+body.theme-light {
+    --bg: #f0f2f5;
+    --bg-card: #ffffff;
+    --bg-hover: #e8eaed;
+    --text: #1a1a2e;
+    --text-dim: #5a6270;
+    --accent: #e94560;
+    --accent-green: #2ecc71;
+    --accent-red: #e74c3c;
+    --border: #d1d5db;
+}
+
+body.theme-sf6 {
+    --bg: #0d0a1a;
+    --bg-card: #1a1030;
+    --bg-hover: #251845;
+    --text: #f0f0ff;
+    --text-dim: #8888bb;
+    --accent: #ff3d71;
+    --accent-green: #00e5ff;
+    --accent-red: #ff3d71;
+    --border: #2d2050;
+}
+
 /* === Responsive === */
 @media (max-width: 768px) {
     .summary-row { flex-direction: column; }

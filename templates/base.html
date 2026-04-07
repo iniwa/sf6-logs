@@ -16,6 +16,11 @@
             <a href="/settings">Settings</a>
         </div>
         <div class="status-area">
+            <select id="theme-select" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:0.75rem;" onchange="setTheme(this.value)">
+                <option value="">Dark</option>
+                <option value="theme-light">Light</option>
+                <option value="theme-sf6">SF6</option>
+            </select>
             <span id="cfn-badge" class="badge badge-off">CFN</span>
             <span id="mock-badge" class="badge badge-mock" style="display:none">MOCK</span>
         </div>

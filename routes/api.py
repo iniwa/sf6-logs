@@ -21,11 +21,37 @@ def _notify_clients(match_dict):
     today = stats.get_session_stats()
     stats_msg = f"event: stats\ndata: {json.dumps(today, ensure_ascii=False)}\n\n"
 
+    # ポップアップ通知設定をチェック
+    popup_match = storage.get_config('popup_match_result', '1') == '1'
+    popup_rank = storage.get_config('popup_rank_change', '1') == '1'
+    popup_mr_ms = storage.get_config('popup_mr_milestone', '1') == '1'
+    popup_streak = storage.get_config('popup_streak_record', '1') == '1'
+
     # 最新マッチ情報を event: match で送信
-    matches = storage.get_matches(limit=1)
     match_msg = ""
-    if matches:
-        match_msg = f"event: match\ndata: {json.dumps(matches[0], ensure_ascii=False)}\n\n"
+    if popup_match:
+        matches = storage.get_matches(limit=1)
+        if matches:
+            match_msg = f"event: match\ndata: {json.dumps(matches[0], ensure_ascii=False)}\n\n"
+
+    # マイルストーン通知
+    milestone_msgs = []
+    milestones = stats.check_milestone(match_dict)
+    for ms in milestones:
+        if ms['type'] == 'rank_change' and not popup_rank:
+            continue
+        if ms['type'] in ('mr_milestone', 'master_reached') and not popup_mr_ms:
+            continue
+        milestone_msgs.append(
+            f"event: milestone\ndata: {json.dumps(ms, ensure_ascii=False)}\n\n"
+        )
+
+    # ストリーク記録更新チェック
+    streak_msg = ""
+    if popup_streak:
+        streak_record = stats.check_streak_record(match_dict)
+        if streak_record:
+            streak_msg = f"event: milestone\ndata: {json.dumps(streak_record, ensure_ascii=False)}\n\n"
 
     with _sse_lock:
         dead = []
@@ -34,6 +60,10 @@ def _notify_clients(match_dict):
                 q.put_nowait(stats_msg)
                 if match_msg:
                     q.put_nowait(match_msg)
+                for ms_msg in milestone_msgs:
+                    q.put_nowait(ms_msg)
+                if streak_msg:
+                    q.put_nowait(streak_msg)
             except queue.Full:
                 dead.append(q)
         for q in dead:
@@ -117,6 +147,75 @@ def stats_lp_history():
     limit = request.args.get('limit', 50, type=int)
     mode = request.args.get('mode')
     return jsonify(stats.get_lp_mr_history(limit=limit, battle_type=mode))
+
+
+@bp.route('/stats/calendar')
+def stats_calendar():
+    days = request.args.get('days', 90, type=int)
+    mode = request.args.get('mode')
+    bt = mode if mode and mode != 'all' else None
+    return jsonify(stats.get_calendar_data(days=days, battle_type=bt))
+
+
+@bp.route('/stats/hourly')
+def stats_hourly():
+    mode = request.args.get('mode')
+    bt = mode if mode and mode != 'all' else None
+    return jsonify(stats.get_hourly_stats(battle_type=bt))
+
+
+@bp.route('/stats/streaks')
+def stats_streaks():
+    mode = request.args.get('mode')
+    bt = mode if mode and mode != 'all' else None
+    return jsonify(stats.get_best_streaks(battle_type=bt))
+
+
+@bp.route('/stats/rematches')
+def stats_rematches():
+    limit = request.args.get('limit', 50, type=int)
+    mode = request.args.get('mode')
+    bt = mode if mode and mode != 'all' else None
+    return jsonify(stats.detect_rematches(limit=limit, battle_type=bt))
+
+
+@bp.route('/stats/heatmap')
+def stats_heatmap():
+    mode = request.args.get('mode')
+    bt = mode if mode and mode != 'all' else None
+    return jsonify(stats.get_matchup_heatmap(battle_type=bt))
+
+
+@bp.route('/stats/rolling-winrate')
+def stats_rolling_winrate():
+    window = request.args.get('window', 10, type=int)
+    mode = request.args.get('mode')
+    bt = mode if mode and mode != 'all' else None
+    return jsonify(stats.get_rolling_winrate(window=window, battle_type=bt))
+
+
+@bp.route('/sessions')
+def sessions_list():
+    sessions = storage.get_all_sessions(limit=50)
+    result = []
+    for s in sessions:
+        started = datetime.fromisoformat(s['started_at'])
+        ended_str = s.get('ended_at')
+        ended = datetime.fromisoformat(ended_str) if ended_str else None
+        matches = storage.get_matches_between(
+            s['started_at'], ended_str
+        )
+        wins = sum(1 for m in matches if m['result'] == 'win')
+        losses = len(matches) - wins
+        total = wins + losses
+        result.append({
+            **s,
+            'wins': wins,
+            'losses': losses,
+            'total': total,
+            'winrate': round(wins / total * 100, 1) if total > 0 else 0.0,
+        })
+    return jsonify(result)
 
 
 @bp.route('/stream')

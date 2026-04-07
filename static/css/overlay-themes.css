@@ -253,3 +253,31 @@ body {
     font-size: calc(14px * var(--ovl-scale, 1));
     color: var(--ovl-sub);
 }
+
+/* --- Milestone Popup --- */
+.popup-milestone {
+    top: auto;
+    bottom: calc(20px * var(--ovl-scale, 1));
+    right: calc(20px * var(--ovl-scale, 1));
+    border-left-color: #f0ad4e;
+    min-width: calc(240px * var(--ovl-scale, 1));
+}
+
+.popup-milestone-icon {
+    font-size: calc(36px * var(--ovl-scale, 1));
+    margin-bottom: calc(4px * var(--ovl-scale, 1));
+}
+
+.popup-milestone-up {
+    color: var(--ovl-win);
+}
+
+.popup-milestone-down {
+    color: var(--ovl-lose);
+}
+
+.popup-milestone-label {
+    font-size: calc(18px * var(--ovl-scale, 1));
+    font-weight: 700;
+    color: var(--ovl-text);
+}

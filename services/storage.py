@@ -36,6 +36,8 @@ def init_db():
                     lp_after     INTEGER,
                     mr_before    INTEGER,
                     mr_after     INTEGER,
+                    opp_lp       INTEGER,
+                    opp_mr       INTEGER,
                     raw_data     TEXT,
                     created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
                 );
@@ -47,11 +49,26 @@ def init_db():
                     label      TEXT
                 );
 
+                CREATE TABLE IF NOT EXISTS streak_records (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    record_type TEXT NOT NULL,
+                    value       INTEGER NOT NULL,
+                    recorded_at DATETIME NOT NULL,
+                    match_id    INTEGER,
+                    UNIQUE(record_type)
+                );
+
                 CREATE TABLE IF NOT EXISTS config (
                     key   TEXT PRIMARY KEY,
                     value TEXT NOT NULL
                 );
             ''')
+            # マイグレーション: 既存テーブルに新カラムを追加
+            for col, col_type in [('opp_lp', 'INTEGER'), ('opp_mr', 'INTEGER')]:
+                try:
+                    conn.execute(f'ALTER TABLE matches ADD COLUMN {col} {col_type}')
+                except sqlite3.OperationalError:
+                    pass  # カラムが既に存在
             conn.commit()
             c.log('DB initialized')
         finally:
@@ -121,8 +138,9 @@ def insert_match(match_dict):
                 '''INSERT OR IGNORE INTO matches
                    (replay_id, played_at, battle_type, my_character,
                     opp_character, opp_name, result,
-                    lp_before, lp_after, mr_before, mr_after, raw_data)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                    lp_before, lp_after, mr_before, mr_after,
+                    opp_lp, opp_mr, raw_data)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                 (
                     match_dict['replay_id'],
                     match_dict['played_at'],
@@ -135,6 +153,8 @@ def insert_match(match_dict):
                     match_dict.get('lp_after'),
                     match_dict.get('mr_before'),
                     match_dict.get('mr_after'),
+                    match_dict.get('opp_lp'),
+                    match_dict.get('opp_mr'),
                     json.dumps(match_dict.get('raw_data'), ensure_ascii=False)
                     if match_dict.get('raw_data') else None,
                 )
@@ -252,5 +272,110 @@ def get_current_session():
                 'ORDER BY started_at DESC LIMIT 1'
             ).fetchone()
             return dict(row) if row else None
+        finally:
+            conn.close()
+
+
+def get_all_sessions(limit=50):
+    with c.db_lock:
+        conn = _connect()
+        try:
+            rows = conn.execute(
+                'SELECT * FROM sessions ORDER BY started_at DESC LIMIT ?',
+                (limit,)
+            ).fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            conn.close()
+
+
+def get_session_by_id(session_id):
+    with c.db_lock:
+        conn = _connect()
+        try:
+            row = conn.execute(
+                'SELECT * FROM sessions WHERE id = ?', (session_id,)
+            ).fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
+
+def get_matches_between(start_dt, end_dt=None, battle_type=None):
+    with c.db_lock:
+        conn = _connect()
+        try:
+            sql = 'SELECT * FROM matches WHERE played_at >= ?'
+            params = [start_dt if isinstance(start_dt, str) else start_dt.isoformat()]
+            if end_dt:
+                sql += ' AND played_at <= ?'
+                params.append(end_dt if isinstance(end_dt, str) else end_dt.isoformat())
+            if battle_type:
+                sql += ' AND battle_type = ?'
+                params.append(battle_type)
+            sql += ' ORDER BY played_at DESC'
+            rows = conn.execute(sql, params).fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            conn.close()
+
+
+def get_all_matches(battle_type=None):
+    with c.db_lock:
+        conn = _connect()
+        try:
+            sql = 'SELECT * FROM matches'
+            params = []
+            if battle_type:
+                sql += ' WHERE battle_type = ?'
+                params.append(battle_type)
+            sql += ' ORDER BY played_at ASC'
+            rows = conn.execute(sql, params).fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            conn.close()
+
+
+# --- Streak Records ---
+
+def get_streak_record(record_type):
+    with c.db_lock:
+        conn = _connect()
+        try:
+            row = conn.execute(
+                'SELECT * FROM streak_records WHERE record_type = ?',
+                (record_type,)
+            ).fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
+
+def save_streak_record(record_type, value, match_id=None):
+    with c.db_lock:
+        conn = _connect()
+        try:
+            conn.execute(
+                '''INSERT INTO streak_records (record_type, value, recorded_at, match_id)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(record_type) DO UPDATE SET
+                     value = excluded.value,
+                     recorded_at = excluded.recorded_at,
+                     match_id = excluded.match_id''',
+                (record_type, value, c.get_now().isoformat(), match_id)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def get_all_streak_records():
+    with c.db_lock:
+        conn = _connect()
+        try:
+            rows = conn.execute(
+                'SELECT * FROM streak_records ORDER BY record_type'
+            ).fetchall()
+            return [dict(row) for row in rows]
         finally:
             conn.close()

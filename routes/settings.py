@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for
 
+import config as c
 from services import storage, cfn_auth
 
 bp = Blueprint('settings', __name__)
@@ -60,10 +61,25 @@ def toggle_mock():
     return redirect(url_for('settings.index'))
 
 
+@bp.route('/settings/popup_notifications', methods=['POST'])
+def save_popup_notifications():
+    popup_keys = [
+        'popup_match_result', 'popup_lp_mr_delta',
+        'popup_rank_change', 'popup_mr_milestone',
+        'popup_streak_record',
+    ]
+    for key in popup_keys:
+        val = '1' if request.form.get(key) else '0'
+        storage.set_config(key, val)
+    return redirect(url_for('settings.overlay_settings'))
+
+
 @bp.route('/settings/session/start', methods=['POST'])
 def session_start():
-    label = request.form.get('label', '')
-    storage.start_session(label or None)
+    label = request.form.get('label', '').strip()
+    if not label:
+        label = c.get_now().strftime('%Y-%m-%d %H:%M')
+    storage.start_session(label)
     return redirect(url_for('settings.overlay_settings'))
 
 

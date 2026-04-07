@@ -25,6 +25,12 @@ DEFAULT_CONFIG = {
     'poll_interval': '90',
     'mock_mode': 'true',
     'overlay_theme': 'dark',
+    # ポップアップ通知設定 (1=有効, 0=無効)
+    'popup_match_result': '1',
+    'popup_lp_mr_delta': '1',
+    'popup_rank_change': '1',
+    'popup_mr_milestone': '1',
+    'popup_streak_record': '1',
 }
 
 

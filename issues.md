@@ -1,4 +1,48 @@
 # SF6 Stats Tracker — Issues / Remaining Tasks
 
 ## 改善案  
- - [ ] 対戦相手のMR、ランクを記録できますか？（実装見送り — CFN APIからデータ取得は可能だがDBスキーマ変更が必要）
+ - [x] 対戦相手のMR、ランクを記録
+   - matches テーブルに opp_lp, opp_mr カラム追加
+   - CFN API / Mock から対戦相手の LP/MR を取得・保存
+   - Match History テーブルに Opp Rating カラム表示
+ - [x] Session Managementの機能拡張
+   - セッション履歴テーブル (Overlay Settings に表示、各セッションの W/L/勝率を集計)
+   - 空欄の場合は今の日付と時刻を自動で入力
+ - [ ] Twitch BOTとの連携
+   - Session Managementの自動作成
+   - 配信の開始･終了の取得
+   - ※外部依存のため後回し
+ - [x] 日別・週別サマリーカレンダー
+   - GitHubのコントリビューショングラフ風 SVG ヒートマップ (過去90日)
+   - 勝率に応じた色の濃淡で表示、ホバーで詳細確認
+ - [x] 時間帯別パフォーマンス分析
+   - 0-23時の棒グラフ (SVG) で勝率と試合数を表示
+   - 50%ラインの点線表示、試合数に応じた透明度
+ - [x] 連勝/連敗の最高記録トラッカー
+   - streak_records テーブルで歴代記録を永続化
+   - ダッシュボードに Best Win Streak / Worst Lose Streak 表示
+   - 記録更新時に SSE で milestone イベント送信 → Popup Overlay に通知
+ - [x] 対戦相手との再戦検知
+   - 連続で同じ相手と対戦した場合を自動検知
+   - Rematches セクションにテーブル表示 (W/L 含む)
+   - webGUI上のみ (オーバーレイには非表示)
+ - [x] MR/LPマイルストーン通知
+   - ランク昇格/降格を LP しきい値で自動検知
+   - MR マイルストーン (1000, 1100, ... 2000) 到達/下回りを検知
+   - MASTER ランク到達も検知
+   - Popup Overlay にマイルストーン専用ポップアップ表示 (キュー制御)
+   - Animation Preview でシミュレーション可能
+ - [x] キャラ別の対キャラ勝率ヒートマップ
+   - 自キャラ × 相手キャラの2軸テーブル
+   - 勝率に応じた背景色 (緑=高勝率、赤=低勝率)
+   - ホバーで W/L 詳細表示
+ - [x] ダッシュボードのテーマ切替
+   - Dark (デフォルト) / Light / SF6 の3テーマ
+   - ナビバーのセレクトで切替、localStorage に保存
+ - [x] 勝率の推移グラフ（ローリング勝率）
+   - 直近10戦/20戦をボタンで切替
+   - SVG 折れ線グラフ、50%ラインの点線表示
+ - [x] オーバーレイのポップアップ通知に表示される内容の一覧提示
+   - Overlay Settings に通知種別一覧テーブル追加
+   - Match Result / LP・MR Delta / Rank Change / MR Milestone / Streak Record
+   - 各項目の ON/OFF をチェックボックスで設定可能 (config DB に保存)
