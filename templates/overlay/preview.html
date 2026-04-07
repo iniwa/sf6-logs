@@ -84,7 +84,7 @@
     <div class="preview-container">
         <div>
             <div class="preview-frame">
-                <iframe id="ovl-frame" src="/overlay?streak=1"></iframe>
+                <iframe id="ovl-frame" src="/overlay?streak=1&preview=1"></iframe>
             </div>
             <div style="margin-top: 12px;">
                 <div class="param-row">
@@ -165,13 +165,12 @@
                         if (url.indexOf('/api/matches') !== -1) {
                             return Promise.resolve({ json: function() { return Promise.resolve(history); } });
                         }
-                        if (url.indexOf('/api/stats/today') !== -1) {
+                        if (url.indexOf('/api/stats/session') !== -1 || url.indexOf('/api/stats/today') !== -1) {
                             return Promise.resolve({ json: function() { return Promise.resolve(state); } });
                         }
                         return origFetch.apply(this, arguments);
                     };
                     fw.refreshHistory();
-                    // restore after a tick
                     setTimeout(function() { fw.fetch = origFetch; }, 100);
                 }
             } catch(e) { console.warn('Frame not ready', e); }
@@ -239,7 +238,7 @@
             var t = document.getElementById('opt-theme').value;
             var s = document.getElementById('opt-size').value;
             var l = document.getElementById('opt-layout').value;
-            var url = '/overlay?streak=1&theme=' + t + '&size=' + s + '&layout=' + l;
+            var url = '/overlay?streak=1&preview=1&theme=' + t + '&size=' + s + '&layout=' + l;
             document.getElementById('ovl-frame').src = url;
         }
 

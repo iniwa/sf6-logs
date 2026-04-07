@@ -4,6 +4,9 @@
  * Uses overlayMode (set in base_overlay.html) to decide SSE vs polling.
  */
 (function() {
+    // preview モード時は SSE/ポーリングを無効化（親ウィンドウから直接制御）
+    if (new URLSearchParams(window.location.search).get('preview') === '1') return;
+
     var pollFallback = null;
     var useMode = typeof overlayMode !== 'undefined' && overlayMode !== 'all';
 
