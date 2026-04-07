@@ -139,14 +139,39 @@ def _requests_login(email, password):
     })
 
     # Step 1: Auth config を取得
-    # Buckler /auth/login → CID → Auth0 login page へリダイレクトされる
+    # Buckler /auth/login → CID → Auth0 login page へリダイレクトチェーン
+    # 自動リダイレクトだとエラーページに飛ぶため、手動で追跡する
     c.log('Auto-login: fetching auth config...')
     resp = session.get(
         f'{BUCKLER_BASE}/6/buckler/auth/login',
         params={'redirect_url': '/?status=login'},
         timeout=15,
+        allow_redirects=False,
     )
-    resp.raise_for_status()
+
+    redirect_chain = []
+    for _ in range(10):
+        if resp.status_code not in (301, 302, 303, 307, 308):
+            break
+        location = resp.headers.get('Location', '')
+        if not location:
+            break
+        # 相対 URL を絶対 URL に変換
+        if location.startswith('/'):
+            from urllib.parse import urlparse
+            parsed = urlparse(resp.url)
+            location = f'{parsed.scheme}://{parsed.netloc}{location}'
+        redirect_chain.append(location)
+        c.log(f'Auto-login: redirect → {location}')
+        resp = session.get(location, timeout=15, allow_redirects=False)
+
+    chain_str = ' → '.join(redirect_chain) if redirect_chain else '(no redirects)'
+
+    if resp.status_code != 200:
+        raise Exception(
+            f'Auth page not reachable (status={resp.status_code}, url={resp.url})\n'
+            f'Redirect chain: {chain_str}'
+        )
 
     # atob('...') から Base64 エンコードされた設定を抽出
     # Auth0 Classic Universal Login ページに埋め込まれている
@@ -154,17 +179,15 @@ def _requests_login(email, password):
     if not match:
         raise Exception(
             f'Auth config not found in login page '
-            f'(final url: {resp.url}, status: {resp.status_code})'
+            f'(final url: {resp.url})\n'
+            f'Redirect chain: {chain_str}'
         )
 
     auth_config = json.loads(base64.b64decode(match.group(1)).decode('utf-8'))
-    c.log(f'Auto-login: auth config keys: {list(auth_config.keys())}')
     client_id = auth_config.get('clientID')
     callback_url = auth_config.get('callbackURL')
     tenant = auth_config.get('auth0Tenant')
     extra = auth_config.get('extraParams', {})
-    c.log(f'Auto-login: clientID={client_id}, callbackURL={callback_url}, tenant={tenant}')
-    c.log(f'Auto-login: extraParams keys: {list(extra.keys())}')
 
     # Step 2: Auth0 にログイン
     c.log('Auto-login: authenticating with CAPCOM ID...')
