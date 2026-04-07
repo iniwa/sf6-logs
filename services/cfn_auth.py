@@ -220,6 +220,9 @@ def _requests_login(email, password):
         if name:
             form_data[name] = inp.get('value', '')
 
+    c.log(f'Auto-login: callback action={action_url}')
+    c.log(f'Auto-login: callback form fields: {list(form_data.keys())}')
+
     # Content-Type をフォーム送信に戻す
     session.headers.pop('Content-Type', None)
     session.headers.update({
@@ -233,6 +236,8 @@ def _requests_login(email, password):
         timeout=30,
         allow_redirects=True,
     )
+    c.log(f'Auto-login: callback final url={callback_resp.url}, status={callback_resp.status_code}')
+    c.log(f'Auto-login: callback redirect history: {[r.url for r in callback_resp.history]}')
 
     # Cookie を抽出（streetfighter.com ドメインのもの）
     buckler_cookies = []
