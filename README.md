@@ -173,4 +173,4 @@ sf6-logs/
 
 ## License
 
-Private repository.
+[MIT License](LICENSE)
