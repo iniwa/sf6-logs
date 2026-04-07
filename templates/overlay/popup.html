@@ -66,6 +66,12 @@ function updateStats(d) {}
         }, 5000);
     }
 
+    /* 外部（プレビュー親ウィンドウ）から呼べるように公開 */
+    window.showPopup = showPopup;
+
+    /* preview モードでは SSE 接続しない */
+    if (new URLSearchParams(window.location.search).get('preview') === '1') return;
+
     /* SSE: event: match を直接購読 */
     if (typeof EventSource !== 'undefined') {
         var es = new EventSource('/api/stream');

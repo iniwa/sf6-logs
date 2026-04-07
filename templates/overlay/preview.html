@@ -27,6 +27,16 @@
             height: 180px;
             background: transparent;
         }
+        .preview-frame iframe.popup-iframe {
+            height: 140px;
+            width: 360px;
+        }
+        .popup-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 16px;
+            margin-bottom: 6px;
+        }
 
         .controls {
             display: flex;
@@ -85,6 +95,10 @@
         <div>
             <div class="preview-frame">
                 <iframe id="ovl-frame" src="/overlay?streak=1&preview=1"></iframe>
+            </div>
+            <div class="popup-label">Popup Notification</div>
+            <div class="preview-frame">
+                <iframe id="popup-frame" class="popup-iframe" src="/overlay/popup?preview=1"></iframe>
             </div>
             <div style="margin-top: 12px;">
                 <div class="param-row">
@@ -151,9 +165,33 @@
         ];
         var _prevIds = null;
         var _nextId = 100;
+        var _oppChars = ['Ryu','Ken','Juri','Cammy','Luke','Kimberly','Marisa','Manon','JP','Zangief'];
+        var _oppIdx = 0;
 
         function getFrame() {
             return document.getElementById('ovl-frame').contentWindow;
+        }
+
+        function getPopupFrame() {
+            return document.getElementById('popup-frame').contentWindow;
+        }
+
+        function triggerPopup(result, mrDelta) {
+            try {
+                var pf = getPopupFrame();
+                if (typeof pf.showPopup === 'function') {
+                    var char = _oppChars[_oppIdx % _oppChars.length];
+                    _oppIdx++;
+                    pf.showPopup({
+                        result: result,
+                        mr_before: state.mr - mrDelta,
+                        mr_after: state.mr,
+                        lp_before: null,
+                        lp_after: null,
+                        opp_character: char
+                    });
+                }
+            } catch(e) { console.warn('Popup frame not ready', e); }
         }
 
         function pushState() {
@@ -208,6 +246,7 @@
             mockHistory.unshift({id: _nextId++, result: 'win'});
             if (mockHistory.length > 10) mockHistory.pop();
             pushState();
+            triggerPopup('win', 30);
         }
 
         function simLose() {
@@ -219,6 +258,7 @@
             mockHistory.unshift({id: _nextId++, result: 'lose'});
             if (mockHistory.length > 10) mockHistory.pop();
             pushState();
+            triggerPopup('lose', -30);
         }
 
         function simStreak(n) {
@@ -251,6 +291,7 @@
             var url = '/overlay?streak=1&preview=1&theme=' + t + '&size=' + s + '&layout=' + l;
             _prevIds = null;
             document.getElementById('ovl-frame').src = url;
+            document.getElementById('popup-frame').src = '/overlay/popup?preview=1&theme=' + t + '&size=' + s;
         }
 
         // iframe ロード後にモックデータを反映
