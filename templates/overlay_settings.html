@@ -119,6 +119,17 @@
             <a id="ovl-open" href="/overlay" target="_blank" class="btn btn-secondary" style="white-space:nowrap;text-decoration:none;">Preview</a>
         </div>
     </div>
+
+    <!-- Popup URL (常時表示) -->
+    <div id="popup-url-row" style="margin-bottom: 16px;">
+        <label style="display:block;margin-bottom:6px;color:var(--text-dim);font-size:0.85rem;">Popup Notification URL <span style="font-size:0.75rem;">(別ブラウザソースとして追加)</span></label>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <code id="popup-url" style="flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:0.9rem;word-break:break-all;cursor:pointer;" onclick="copyPopupUrl()" title="Click to copy"></code>
+            <button type="button" class="btn btn-success" onclick="copyPopupUrl()" style="white-space:nowrap;">Copy</button>
+            <a id="popup-open" href="/overlay/popup" target="_blank" class="btn btn-secondary" style="white-space:nowrap;text-decoration:none;">Preview</a>
+        </div>
+        <p style="margin-top:4px;color:var(--text-dim);font-size:0.75rem;">OBS 推奨: 400 x 200 / イベント発生時のみ表示されます</p>
+    </div>
 </div>
 
 <!-- Animation Preview Link -->
@@ -286,6 +297,21 @@ function buildUrls() {
     // Update preview link
     document.getElementById('ovl-open').href = type + qs;
 
+    // Popup URL を生成 (メインが Popup 以外のとき表示)
+    var popupRow = document.getElementById('popup-url-row');
+    if (isPopup) {
+        popupRow.style.display = 'none';
+    } else {
+        popupRow.style.display = 'block';
+        var popupParams = [];
+        if (theme !== 'dark') popupParams.push('theme=' + theme);
+        if (size !== 'medium') popupParams.push('size=' + size);
+        if (mode !== 'all') popupParams.push('mode=' + mode);
+        var popupQs = popupParams.length > 0 ? '?' + popupParams.join('&') : '';
+        document.getElementById('popup-url').textContent = baseUrl + '/overlay/popup' + popupQs;
+        document.getElementById('popup-open').href = '/overlay/popup' + popupQs;
+    }
+
     // Popup 時はプレビュー高さを自動調整
     var iframe = document.getElementById('ovl-preview');
     if (isPopup) {
@@ -297,6 +323,13 @@ function buildUrls() {
 
 function copyGenerated() {
     var url = document.getElementById('ovl-url').textContent;
+    navigator.clipboard.writeText(url).then(function() {
+        showToast('Copied!');
+    });
+}
+
+function copyPopupUrl() {
+    var url = document.getElementById('popup-url').textContent;
     navigator.clipboard.writeText(url).then(function() {
         showToast('Copied!');
     });
