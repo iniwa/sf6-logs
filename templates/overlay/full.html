@@ -16,7 +16,7 @@
         <span id="rating-label">LP</span>: <span class="value" id="rating">{{ today.lp if today.lp is not none else '-' }}</span>
         <span id="rating-delta" class="{{ 'delta-pos' if today.lp_delta and today.lp_delta > 0 else 'delta-neg' if today.lp_delta and today.lp_delta < 0 else '' }}">{% if today.lp_delta is not none %}({{ '+%d' % today.lp_delta if today.lp_delta >= 0 else today.lp_delta }}){% endif %}</span>
         {% endif %}
-        {% if streak and today.streak and today.streak != 0 %}
+        {% if streak and today.streak and (today.streak >= 3 or today.streak <= -3) %}
         <span class="streak streak-inline {{ 'streak-win' if today.streak > 0 else 'streak-lose' }}" id="streak">{{ (today.streak ~ '連勝') if today.streak > 0 else ((today.streak | abs) ~ '連敗') }}</span>
         {% else %}
         <span class="streak streak-inline" id="streak" style="display:none;"></span>
@@ -24,7 +24,7 @@
     </div>
     {% else %}
     <div class="lp-row">
-        {% if streak and today.streak and today.streak != 0 %}
+        {% if streak and today.streak and (today.streak >= 3 or today.streak <= -3) %}
         <span class="streak streak-inline {{ 'streak-win' if today.streak > 0 else 'streak-lose' }}" id="streak">{{ (today.streak ~ '連勝') if today.streak > 0 else ((today.streak | abs) ~ '連敗') }}</span>
         {% else %}
         <span class="streak streak-inline" id="streak" style="display:none;"></span>
@@ -81,7 +81,7 @@ function updateStats(d) {
     var streakEl = document.getElementById('streak');
     if (streakEl && _showStreak) {
         var s = d.streak || 0;
-        if (s !== 0) {
+        if (s >= 3 || s <= -3) {
             streakEl.textContent = s > 0 ? s + '連勝' : Math.abs(s) + '連敗';
             streakEl.className = 'streak streak-inline ' + (s > 0 ? 'streak-win' : 'streak-lose');
             streakEl.style.display = '';

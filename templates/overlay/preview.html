@@ -144,11 +144,13 @@
             lp: null, lp_delta: null,
             streak: 2
         };
-        var history = [
-            {result:'win'},{result:'win'},{result:'lose'},{result:'win'},
-            {result:'win'},{result:'lose'},{result:'win'},{result:'lose'},
-            {result:'win'},{result:'win'}
+        var mockHistory = [
+            {id:1,result:'win'},{id:2,result:'win'},{id:3,result:'lose'},{id:4,result:'win'},
+            {id:5,result:'win'},{id:6,result:'lose'},{id:7,result:'win'},{id:8,result:'lose'},
+            {id:9,result:'win'},{id:10,result:'win'}
         ];
+        var _prevIds = null;
+        var _nextId = 100;
 
         function getFrame() {
             return document.getElementById('ovl-frame').contentWindow;
@@ -157,21 +159,28 @@
         function pushState() {
             try {
                 var fw = getFrame();
+                var doc = fw.document;
+
+                // stats 更新
                 if (typeof fw.updateStats === 'function') fw.updateStats(state);
-                if (typeof fw.refreshHistory === 'function') {
-                    // override fetch temporarily to return mock history
-                    var origFetch = fw.fetch;
-                    fw.fetch = function(url) {
-                        if (url.indexOf('/api/matches') !== -1) {
-                            return Promise.resolve({ json: function() { return Promise.resolve(history); } });
-                        }
-                        if (url.indexOf('/api/stats/session') !== -1 || url.indexOf('/api/stats/today') !== -1) {
-                            return Promise.resolve({ json: function() { return Promise.resolve(state); } });
-                        }
-                        return origFetch.apply(this, arguments);
-                    };
-                    fw.refreshHistory();
-                    setTimeout(function() { fw.fetch = origFetch; }, 100);
+
+                // history dots を直接 DOM 操作で更新（fetch モック不要）
+                var hist = doc.getElementById('history');
+                if (hist) {
+                    var newIds = mockHistory.map(function(m) { return m.id + '_' + m.result; }).join(',');
+                    var hadPrev = _prevIds !== null;
+                    var changed = _prevIds !== newIds;
+                    _prevIds = newIds;
+
+                    if (!hadPrev || changed) {
+                        hist.innerHTML = '';
+                        mockHistory.forEach(function(m, i) {
+                            var dot = doc.createElement('span');
+                            dot.className = 'dot ' + (m.result === 'win' ? 'dot-win' : 'dot-lose');
+                            if (hadPrev && changed && i === 0) dot.classList.add('dot-new');
+                            hist.appendChild(dot);
+                        });
+                    }
                 }
             } catch(e) { console.warn('Frame not ready', e); }
             renderState();
@@ -181,7 +190,7 @@
             var s = state;
             var txt = 'W' + s.wins + ' / L' + s.losses + ' (' + s.winrate + '%)\n';
             txt += 'MR: ' + s.mr + ' (' + (s.mr_delta >= 0 ? '+' : '') + s.mr_delta + ')\n';
-            txt += 'Streak: ' + (s.streak > 0 ? '▲' + s.streak : s.streak < 0 ? '▼' + Math.abs(s.streak) : '---');
+            txt += 'Streak: ' + (s.streak >= 3 ? s.streak + '連勝' : s.streak <= -3 ? Math.abs(s.streak) + '連敗' : '---');
             document.getElementById('state-display').textContent = txt;
         }
 
@@ -196,8 +205,8 @@
             state.mr_delta += 30;
             state.streak = state.streak > 0 ? state.streak + 1 : 1;
             recalcWinrate();
-            history.unshift({id: Date.now(), result: 'win'});
-            if (history.length > 10) history.pop();
+            mockHistory.unshift({id: _nextId++, result: 'win'});
+            if (mockHistory.length > 10) mockHistory.pop();
             pushState();
         }
 
@@ -207,8 +216,8 @@
             state.mr_delta -= 30;
             state.streak = state.streak < 0 ? state.streak - 1 : -1;
             recalcWinrate();
-            history.unshift({id: Date.now(), result: 'lose'});
-            if (history.length > 10) history.pop();
+            mockHistory.unshift({id: _nextId++, result: 'lose'});
+            if (mockHistory.length > 10) mockHistory.pop();
             pushState();
         }
 
@@ -230,7 +239,8 @@
                 lp: null, lp_delta: null,
                 streak: 0
             };
-            history = [];
+            mockHistory = [];
+            _prevIds = null;
             pushState();
         }
 
@@ -239,10 +249,11 @@
             var s = document.getElementById('opt-size').value;
             var l = document.getElementById('opt-layout').value;
             var url = '/overlay?streak=1&preview=1&theme=' + t + '&size=' + s + '&layout=' + l;
+            _prevIds = null;
             document.getElementById('ovl-frame').src = url;
         }
 
-        // initial push after iframe loads
+        // iframe ロード後にモックデータを反映
         document.getElementById('ovl-frame').addEventListener('load', function() {
             setTimeout(pushState, 300);
         });
