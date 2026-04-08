@@ -95,6 +95,15 @@
                 <option value="custom">Custom</option>
             </select>
         </div>
+
+        <!-- Position (Popup) -->
+        <div id="ovl-pos-wrap">
+            <label style="display:block;margin-bottom:6px;color:var(--text-dim);font-size:0.85rem;">Popup Position</label>
+            <select id="ovl-pos" onchange="buildUrls()">
+                <option value="right">Right (right slide-in)</option>
+                <option value="left">Left (left slide-in)</option>
+            </select>
+        </div>
     </div>
 
     <!-- Feature Toggles -->
@@ -221,7 +230,7 @@
             <tr><td>Record Only</td><td>300</td><td>80</td><td>W/L と勝率のみ</td></tr>
             <tr><td>LP / MR Only</td><td>250</td><td>60</td><td>現在値 + 差分のみ</td></tr>
             <tr><td>Match History</td><td>500</td><td>60</td><td>直近の勝敗ドット列</td></tr>
-            <tr><td>Popup Notification</td><td>400</td><td>200</td><td>マッチ結果 + マイルストーン通知 (右上/右下配置)</td></tr>
+            <tr><td>Popup Notification</td><td>400</td><td>200</td><td>マッチ結果 + マイルストーン通知 (?pos=left で左配置)</td></tr>
         </tbody>
     </table>
     <p style="margin-top: 8px; color: var(--text-dim); font-size: 0.8rem;">
@@ -273,10 +282,13 @@ function buildUrls() {
     var streak = document.getElementById('ovl-streak').checked;
     var test = document.getElementById('ovl-test').checked;
 
+    var pos = document.getElementById('ovl-pos').value;
+
     var isPopup = (type === '/overlay/popup');
 
-    // Popup 選択時のみ Test Display を表示
+    // Popup 選択時のみ Test Display / Position を表示
     document.getElementById('ovl-test-wrap').style.display = isPopup ? 'flex' : 'none';
+    document.getElementById('ovl-pos-wrap').style.display = isPopup ? 'block' : 'none';
     if (!isPopup) document.getElementById('ovl-test').checked = false;
 
     var params = [];
@@ -284,6 +296,7 @@ function buildUrls() {
     if (size !== 'medium') params.push('size=' + size);
     if (!isPopup && layout !== 'vertical') params.push('layout=' + layout);
     if (mode !== 'all') params.push('mode=' + mode);
+    if (isPopup && pos !== 'right') params.push('pos=' + pos);
     if (!isPopup && !anim) params.push('anim=0');
     if (!isPopup && !streak) params.push('streak=0');
     if (isPopup && test) params.push('test=1');
@@ -307,6 +320,7 @@ function buildUrls() {
         if (theme !== 'dark') popupParams.push('theme=' + theme);
         if (size !== 'medium') popupParams.push('size=' + size);
         if (mode !== 'all') popupParams.push('mode=' + mode);
+        if (pos !== 'right') popupParams.push('pos=' + pos);
         var popupQs = popupParams.length > 0 ? '?' + popupParams.join('&') : '';
         document.getElementById('popup-url').textContent = baseUrl + '/overlay/popup' + popupQs;
         document.getElementById('popup-open').href = '/overlay/popup' + popupQs;

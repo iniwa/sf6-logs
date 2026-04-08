@@ -7,6 +7,7 @@ bp = Blueprint('overlay', __name__)
 VALID_THEMES = ('dark', 'sf6')
 VALID_SIZES = ('small', 'medium', 'large')
 VALID_LAYOUTS = ('vertical', 'horizontal')
+VALID_POSITIONS = ('right', 'left')
 
 VALID_MODES = ('all', 'ranked', 'casual', 'battle_hub', 'custom')
 
@@ -23,6 +24,9 @@ def _overlay_context():
         layout = 'vertical'
     anim = request.args.get('anim', '1') != '0'
     streak = request.args.get('streak', '1') != '0'
+    pos = request.args.get('pos', 'right')
+    if pos not in VALID_POSITIONS:
+        pos = 'right'
     mode = request.args.get('mode', 'all')
     if mode not in VALID_MODES:
         mode = 'all'
@@ -35,6 +39,7 @@ def _overlay_context():
         'layout': layout,
         'anim': anim,
         'streak': streak,
+        'pos': pos,
         'mode': mode,
         'today': today,
         'recent': recent,

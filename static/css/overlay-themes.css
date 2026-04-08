@@ -174,6 +174,27 @@ body {
     text-align: center;
     pointer-events: none;
     border-left: calc(4px * var(--ovl-scale, 1)) solid var(--ovl-muted);
+    border-right: none;
+}
+
+/* 左寄せ */
+.pos-left .popup-notification {
+    right: auto;
+    left: calc(20px * var(--ovl-scale, 1));
+    border-left: none;
+    border-right: calc(4px * var(--ovl-scale, 1)) solid var(--ovl-muted);
+}
+.pos-left .popup-notification:has(.popup-win) {
+    border-left-color: transparent;
+    border-right-color: var(--ovl-win);
+}
+.pos-left .popup-notification:has(.popup-lose) {
+    border-left-color: transparent;
+    border-right-color: var(--ovl-lose);
+}
+.pos-left .popup-milestone {
+    right: auto;
+    left: calc(20px * var(--ovl-scale, 1));
 }
 
 .popup-hidden {
@@ -184,31 +205,35 @@ body {
     display: block;
     animation: popup-slidein 0.4s ease-out forwards;
 }
+.pos-left .popup-show {
+    animation: popup-slidein-left 0.4s ease-out forwards;
+}
 
 .popup-fadeout {
     animation: popup-fadeout 0.6s ease-in forwards;
 }
-
-@keyframes popup-slidein {
-    from {
-        opacity: 0;
-        transform: translateX(60px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
+.pos-left .popup-fadeout {
+    animation: popup-fadeout-left 0.6s ease-in forwards;
 }
 
+/* 右からスライドイン */
+@keyframes popup-slidein {
+    from { opacity: 0; transform: translateX(60px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
 @keyframes popup-fadeout {
-    from {
-        opacity: 1;
-        transform: translateX(0);
-    }
-    to {
-        opacity: 0;
-        transform: translateX(40px);
-    }
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(40px); }
+}
+
+/* 左からスライドイン */
+@keyframes popup-slidein-left {
+    from { opacity: 0; transform: translateX(-60px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes popup-fadeout-left {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(-40px); }
 }
 
 .popup-result {
@@ -261,6 +286,10 @@ body {
     right: calc(20px * var(--ovl-scale, 1));
     border-left-color: #f0ad4e;
     min-width: calc(240px * var(--ovl-scale, 1));
+}
+.pos-left .popup-milestone {
+    border-left-color: transparent;
+    border-right-color: #f0ad4e;
 }
 
 .popup-milestone-icon {

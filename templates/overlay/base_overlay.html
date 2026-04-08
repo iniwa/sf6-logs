@@ -5,7 +5,7 @@
     <title>SF6 Overlay</title>
     <link rel="stylesheet" href="/static/css/overlay-themes.css">
 </head>
-<body class="theme-{{ theme }} size-{{ size }} layout-{{ layout }}{{ ' no-anim' if not anim }}">
+<body class="theme-{{ theme }} size-{{ size }} layout-{{ layout }}{{ ' no-anim' if not anim }}{{ ' pos-left' if pos == 'left' }}">
     {% block content %}{% endblock %}
 
     <script>
