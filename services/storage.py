@@ -71,8 +71,61 @@ def init_db():
                     pass  # カラムが既に存在
             conn.commit()
             c.log('DB initialized')
+
+            # マイグレーション: LP/MR の before/after 修正
+            # API の値はマッチ前の値だが、旧コードでは after に保存していた
+            _migrate_lp_mr_fields(conn)
         finally:
             conn.close()
+
+
+def _migrate_lp_mr_fields(conn):
+    """旧データの lp/mr フィールドを修正: after → before に移動し、after を連鎖で埋める"""
+    migrated = conn.execute(
+        "SELECT value FROM config WHERE key = 'lp_mr_migrated'"
+    ).fetchone()
+    if migrated:
+        return
+
+    rows = conn.execute(
+        'SELECT id, lp_before, lp_after, mr_before, mr_after '
+        'FROM matches ORDER BY played_at ASC'
+    ).fetchall()
+
+    if not rows:
+        conn.execute(
+            "INSERT OR REPLACE INTO config (key, value) VALUES ('lp_mr_migrated', '1')"
+        )
+        conn.commit()
+        return
+
+    # 旧データ: before=前マッチのafter(=前マッチのAPI値), after=このマッチのAPI値
+    # 新データ: before=このマッチのAPI値, after=次マッチのAPI値
+    # つまり旧 after は実際には before
+    updates = []
+    for i, row in enumerate(rows):
+        rid, old_lp_before, old_lp_after, old_mr_before, old_mr_after = row
+        new_lp_before = old_lp_after  # 旧 after は実際の before
+        new_mr_before = old_mr_after  # 旧 after は実際の before
+        # after は次のマッチの旧 after (= 次のマッチの before)
+        if i + 1 < len(rows):
+            next_row = rows[i + 1]
+            new_lp_after = next_row[2]  # 次の旧 lp_after
+            new_mr_after = next_row[4]  # 次の旧 mr_after
+        else:
+            new_lp_after = None  # 最新マッチは after 不明
+            new_mr_after = None
+        updates.append((new_lp_before, new_lp_after, new_mr_before, new_mr_after, rid))
+
+    conn.executemany(
+        'UPDATE matches SET lp_before=?, lp_after=?, mr_before=?, mr_after=? WHERE id=?',
+        updates
+    )
+    conn.execute(
+        "INSERT OR REPLACE INTO config (key, value) VALUES ('lp_mr_migrated', '1')"
+    )
+    conn.commit()
+    c.log(f'Migrated LP/MR fields for {len(updates)} matches')
 
 
 # --- Config ---
@@ -168,6 +221,20 @@ def insert_match(match_dict):
                     except Exception:
                         pass
             return inserted
+        finally:
+            conn.close()
+
+
+def update_match_lp_mr(match_id, lp_after, mr_after):
+    """既存マッチの lp_after/mr_after を更新"""
+    with c.db_lock:
+        conn = _connect()
+        try:
+            conn.execute(
+                'UPDATE matches SET lp_after = ?, mr_after = ? WHERE id = ?',
+                (lp_after, mr_after, match_id)
+            )
+            conn.commit()
         finally:
             conn.close()
 

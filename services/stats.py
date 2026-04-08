@@ -5,10 +5,20 @@ import config as c
 from services import storage
 
 
+def _latest_mr(match):
+    """マッチから最新の MR を取得 (after 優先、なければ before)"""
+    return match.get('mr_after') or match.get('mr_before')
+
+
+def _latest_lp(match):
+    """マッチから最新の LP を取得 (after 優先、なければ before)"""
+    return match.get('lp_after') or match.get('lp_before')
+
+
 def is_master():
-    """最新マッチに mr_after があれば MASTER ランク到達と判定"""
+    """最新マッチに MR があれば MASTER ランク到達と判定"""
     matches = storage.get_matches(limit=1)
-    if matches and matches[0].get('mr_after') is not None:
+    if matches and _latest_mr(matches[0]) is not None:
         return True
     return False
 
@@ -47,9 +57,9 @@ def get_today_stats(battle_type=None, since_dt=_UNSET):
     master = is_master()
     if matches:
         latest = matches[0]
-        lp = latest.get('lp_after')
-        mr = latest.get('mr_after')
-        # 本日最初のマッチの before と最新の after で差分計算
+        lp = _latest_lp(latest)
+        mr = _latest_mr(latest)
+        # 本日最初のマッチの before と最新の値で差分計算
         oldest = matches[-1]
         lp_start = oldest.get('lp_before')
         mr_start = oldest.get('mr_before')
@@ -91,8 +101,8 @@ def get_session_stats(battle_type=None):
     mr_delta = None
     if matches:
         latest = matches[0]
-        lp = latest.get('lp_after')
-        mr = latest.get('mr_after')
+        lp = _latest_lp(latest)
+        mr = _latest_mr(latest)
         oldest = matches[-1]
         lp_start = oldest.get('lp_before')
         mr_start = oldest.get('mr_before')
@@ -122,10 +132,11 @@ def get_current_lp():
     if not matches:
         return {'lp': None, 'mr': None, 'is_master': False}
     latest = matches[0]
+    mr = _latest_mr(latest)
     return {
-        'lp': latest.get('lp_after'),
-        'mr': latest.get('mr_after'),
-        'is_master': latest.get('mr_after') is not None,
+        'lp': _latest_lp(latest),
+        'mr': mr,
+        'is_master': mr is not None,
     }
 
 
@@ -195,12 +206,12 @@ def get_lp_mr_history(limit=50, battle_type=None):
     return [
         {
             'played_at': m['played_at'],
-            'lp_after': m.get('lp_after'),
-            'mr_after': m.get('mr_after'),
+            'lp_after': _latest_lp(m),
+            'mr_after': _latest_mr(m),
             'result': m['result'],
         }
         for m in matches
-        if m.get('lp_after') is not None or m.get('mr_after') is not None
+        if _latest_lp(m) is not None or _latest_mr(m) is not None
     ]
 
 

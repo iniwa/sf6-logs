@@ -102,7 +102,12 @@ def _fetch_real_battle_log(session):
 
 
 def _parse_battle_log(data, my_short_id):
-    """API レスポンスをデータ契約の形式に変換"""
+    """API レスポンスをデータ契約の形式に変換
+
+    API の master_rating / league_point はマッチ前の値。
+    マッチリストは新しい順で返るので、次（古い）マッチの before を
+    前（新しい）マッチの after として設定する。
+    """
     page_props = data.get('pageProps', {})
     replay_list = page_props.get('replay_list') or []
     my_short_id = int(my_short_id)
@@ -116,6 +121,17 @@ def _parse_battle_log(data, my_short_id):
         except Exception as e:
             replay_id = replay.get('replay_id', 'unknown')
             c.log(f'Failed to parse replay {replay_id}: {e}')
+
+    # マッチは新しい順。古いマッチの before → 新しいマッチの after として連鎖
+    # matches[0] が最新、matches[-1] が最古
+    for i in range(len(matches) - 1):
+        newer = matches[i]
+        older = matches[i + 1]
+        # 新しいマッチの before = 古いマッチの after
+        if newer.get('lp_before') is not None:
+            older['lp_after'] = newer['lp_before']
+        if newer.get('mr_before') is not None:
+            older['mr_after'] = newer['mr_before']
 
     return matches
 
@@ -172,10 +188,10 @@ def _parse_replay(replay, my_short_id):
         'opp_character': opp.get('playing_character_name', ''),
         'opp_name': opp.get('player', {}).get('fighter_id', ''),
         'result': result,
-        'lp_before': None,  # API は現在値のみ提供、差分は不明
-        'lp_after': me.get('league_point'),
-        'mr_before': None,
-        'mr_after': me.get('master_rating'),
+        'lp_before': me.get('league_point'),   # API の値はマッチ前の値
+        'lp_after': None,                      # 次のマッチの before から算出
+        'mr_before': me.get('master_rating'),   # API の値はマッチ前の値
+        'mr_after': None,                      # 次のマッチの before から算出
         'opp_lp': opp.get('league_point'),
         'opp_mr': opp.get('master_rating'),
         'raw_data': replay,

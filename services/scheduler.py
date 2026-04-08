@@ -64,7 +64,7 @@ def _poll_job():
 
         new_count = 0
         for match in new_matches:
-            _fill_lp_mr_before(match)
+            _backfill_prev_after(match)
             storage.insert_match(match)
             new_count += 1
 
@@ -131,12 +131,21 @@ def _check_auth_job():
         _status['auth_checked_at'] = c.get_now().isoformat()
 
 
-def _fill_lp_mr_before(match):
-    """直前のマッチの lp_after/mr_after を lp_before/mr_before に設定"""
+def _backfill_prev_after(match):
+    """DB の直前マッチに after が未設定なら、今回の before で埋める"""
     prev = storage.get_matches(limit=1)
-    if prev:
-        match['lp_before'] = prev[0].get('lp_after')
-        match['mr_before'] = prev[0].get('mr_after')
+    if not prev:
+        return
+    prev = prev[0]
+    updated = False
+    if prev.get('lp_after') is None and match.get('lp_before') is not None:
+        prev['lp_after'] = match['lp_before']
+        updated = True
+    if prev.get('mr_after') is None and match.get('mr_before') is not None:
+        prev['mr_after'] = match['mr_before']
+        updated = True
+    if updated:
+        storage.update_match_lp_mr(prev['id'], prev.get('lp_after'), prev.get('mr_after'))
 
 
 def start_scheduler():
