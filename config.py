@@ -22,7 +22,7 @@ DEFAULT_CONFIG = {
     'cfn_user_id': '',
     'capcom_email': '',
     'capcom_password': '',
-    'poll_interval': '90',
+    'poll_interval': '60',
     'mock_mode': 'true',
     'overlay_theme': 'dark',
     # ポップアップ通知設定 (1=有効, 0=無効)
