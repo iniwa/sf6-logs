@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timedelta
 
 from flask import Blueprint, render_template, request
@@ -18,22 +19,28 @@ BATTLE_MODES = [
 ]
 
 PERIOD_CHOICES = [
+    ('last20', '直近20戦'),
+    ('last100', '直近100戦'),
+    ('last200', '直近200戦'),
     ('all', 'All'),
-    ('day', '1 Day'),
-    ('24h', '24h'),
-    ('8h', '8h'),
-    ('1h', '1h'),
 ]
+
+_PRESET_PERIODS = {v for v, _ in PERIOD_CHOICES}
 
 
 def _parse_period():
-    """期間パラメータから since_dt を計算。None は全期間を意味する。"""
-    period = request.args.get('period', 'day')
-    now = c.get_now()
+    """期間パラメータを解析。(period, since_dt, selected_date, last_n) を返す。"""
+    period = request.args.get('period', 'last20')
 
     if period == 'all':
-        return period, None, None
+        return period, None, None, None
 
+    # lastN パターン (last20, last100, last200, カスタム last50 等)
+    m = re.match(r'^last(\d+)$', period)
+    if m:
+        return period, None, None, int(m.group(1))
+
+    # 日付指定
     if period == 'day':
         date_str = request.args.get('date')
         if date_str:
@@ -41,16 +48,15 @@ def _parse_period():
                 day = datetime.strptime(date_str, '%Y-%m-%d')
                 since = day.replace(hour=0, minute=0, second=0, microsecond=0,
                                     tzinfo=c.JST)
-                return period, since, date_str
+                return period, since, date_str, None
             except ValueError:
                 pass
+        now = c.get_now()
         since = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        return period, since, now.strftime('%Y-%m-%d')
+        return period, since, now.strftime('%Y-%m-%d'), None
 
-    hours_map = {'24h': 24, '8h': 8, '1h': 1}
-    hours = hours_map.get(period, 24)
-    since = now - timedelta(hours=hours)
-    return period, since, None
+    # 不明な値はデフォルト (直近20戦)
+    return 'last20', None, None, 20
 
 
 @bp.route('/')
@@ -58,16 +64,27 @@ def index():
     mode = request.args.get('mode', 'all')
     bt = mode if mode != 'all' else None
 
-    period, since_dt, selected_date = _parse_period()
+    period, since_dt, selected_date, last_n = _parse_period()
 
-    period_stats = stats.get_today_stats(battle_type=bt, since_dt=since_dt)
-    matches = storage.get_matches_since(since_dt, battle_type=bt, limit=100)
+    period_stats = stats.get_today_stats(battle_type=bt, since_dt=since_dt,
+                                         last_n=last_n)
+    if last_n:
+        matches = storage.get_matches(limit=last_n, battle_type=bt)
+    else:
+        matches = storage.get_matches_since(since_dt, battle_type=bt, limit=100)
     status = sched.get_scheduler_status()
     auth = cfn_auth.is_authenticated()
-    char_stats = stats.get_character_stats(since_dt=since_dt, battle_type=bt)
-    matchup_stats = stats.get_matchup_stats(since_dt=since_dt, battle_type=bt)
-    opp_stats = stats.get_opponent_stats(since_dt=since_dt, battle_type=bt)
+    char_stats = stats.get_character_stats(since_dt=since_dt, battle_type=bt,
+                                           last_n=last_n)
+    matchup_stats = stats.get_matchup_stats(since_dt=since_dt, battle_type=bt,
+                                            last_n=last_n)
+    opp_stats = stats.get_opponent_stats(since_dt=since_dt, battle_type=bt,
+                                         last_n=last_n)
     lp_history = stats.get_lp_mr_history(limit=50, battle_type=bt)
+
+    # カスタム入力欄に表示する値 (プリセット以外の lastN のみ)
+    custom_last_n = last_n if period not in _PRESET_PERIODS and last_n else None
+
     return render_template('dashboard.html',
                            matches=matches, today=period_stats,
                            status=status, auth=auth,
@@ -79,4 +96,5 @@ def index():
                            battle_modes=BATTLE_MODES,
                            current_period=period,
                            period_choices=PERIOD_CHOICES,
-                           selected_date=selected_date)
+                           selected_date=selected_date,
+                           custom_last_n=custom_last_n)

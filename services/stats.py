@@ -40,10 +40,17 @@ def _calc_streak(matches):
 _UNSET = object()
 
 
-def get_today_stats(battle_type=None, since_dt=_UNSET):
+def _fetch_matches(since_dt=_UNSET, battle_type=None, last_n=None):
+    """since_dt または last_n でマッチを取得"""
+    if last_n:
+        return storage.get_matches(limit=last_n, battle_type=battle_type)
     if since_dt is _UNSET:
         since_dt = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
-    matches = storage.get_matches_since(since_dt, battle_type=battle_type)
+    return storage.get_matches_since(since_dt, battle_type=battle_type)
+
+
+def get_today_stats(battle_type=None, since_dt=_UNSET, last_n=None):
+    matches = _fetch_matches(since_dt=since_dt, battle_type=battle_type, last_n=last_n)
 
     wins = sum(1 for m in matches if m['result'] == 'win')
     losses = sum(1 for m in matches if m['result'] == 'lose')
@@ -179,29 +186,28 @@ def _aggregate_by(matches, key):
     return results
 
 
-def get_character_stats(since_dt=_UNSET, battle_type=None):
-    if since_dt is _UNSET:
-        since_dt = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
-    matches = storage.get_matches_since(since_dt, battle_type=battle_type)
+def get_character_stats(since_dt=_UNSET, battle_type=None, last_n=None):
+    matches = _fetch_matches(since_dt=since_dt, battle_type=battle_type, last_n=last_n)
     return _aggregate_by(matches, 'my_character')
 
 
-def get_matchup_stats(since_dt=_UNSET, battle_type=None):
-    if since_dt is _UNSET:
-        since_dt = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
-    matches = storage.get_matches_since(since_dt, battle_type=battle_type)
+def get_matchup_stats(since_dt=_UNSET, battle_type=None, last_n=None):
+    matches = _fetch_matches(since_dt=since_dt, battle_type=battle_type, last_n=last_n)
     return _aggregate_by(matches, 'opp_character')
 
 
-def get_opponent_stats(since_dt=_UNSET, battle_type=None):
-    if since_dt is _UNSET:
-        since_dt = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
-    matches = storage.get_matches_since(since_dt, battle_type=battle_type)
+def get_opponent_stats(since_dt=_UNSET, battle_type=None, last_n=None):
+    matches = _fetch_matches(since_dt=since_dt, battle_type=battle_type, last_n=last_n)
     return _aggregate_by(matches, 'opp_name')
 
 
-def get_lp_mr_history(limit=50, battle_type=None):
-    matches = storage.get_matches(limit=limit, battle_type=battle_type)
+def get_lp_mr_history(limit=50, battle_type=None, since_dt=_UNSET, last_n=None):
+    if last_n:
+        matches = storage.get_matches(limit=last_n, battle_type=battle_type)
+    elif since_dt is not _UNSET and since_dt is not None:
+        matches = storage.get_matches_since(since_dt, battle_type=battle_type)
+    else:
+        matches = storage.get_matches(limit=limit, battle_type=battle_type)
     matches.reverse()  # 時系列昇順
     return [
         {
@@ -252,11 +258,14 @@ def get_calendar_data(days=90, battle_type=None):
 
 # --- 時間帯別パフォーマンス ---
 
-def get_hourly_stats(since_dt=_UNSET, battle_type=None):
+def get_hourly_stats(since_dt=_UNSET, battle_type=None, last_n=None):
     """時間帯別 (0-23時) の勝率を返す"""
-    if since_dt is _UNSET:
-        since_dt = None  # 全期間
-    matches = storage.get_matches_since(since_dt, battle_type=battle_type)
+    if last_n:
+        matches = storage.get_matches(limit=last_n, battle_type=battle_type)
+    else:
+        if since_dt is _UNSET:
+            since_dt = None  # 全期間
+        matches = storage.get_matches_since(since_dt, battle_type=battle_type)
 
     hourly = defaultdict(lambda: {'wins': 0, 'losses': 0})
     for m in matches:
@@ -366,9 +375,14 @@ def check_streak_record(match_dict):
 
 # --- 再戦検知 ---
 
-def detect_rematches(limit=50, battle_type=None):
+def detect_rematches(limit=50, battle_type=None, since_dt=_UNSET, last_n=None):
     """連続で同じ相手と対戦している箇所を検知"""
-    matches = storage.get_matches(limit=limit, battle_type=battle_type)
+    if last_n:
+        matches = storage.get_matches(limit=last_n, battle_type=battle_type)
+    elif since_dt is not _UNSET and since_dt is not None:
+        matches = storage.get_matches_since(since_dt, battle_type=battle_type)
+    else:
+        matches = storage.get_matches(limit=limit, battle_type=battle_type)
     if len(matches) < 2:
         return []
 
@@ -409,11 +423,14 @@ def detect_rematches(limit=50, battle_type=None):
 
 # --- キャラ別 対キャラ勝率ヒートマップ ---
 
-def get_matchup_heatmap(since_dt=_UNSET, battle_type=None):
+def get_matchup_heatmap(since_dt=_UNSET, battle_type=None, last_n=None):
     """自キャラ × 相手キャラ の勝率マトリクスを返す"""
-    if since_dt is _UNSET:
-        since_dt = None
-    matches = storage.get_matches_since(since_dt, battle_type=battle_type)
+    if last_n:
+        matches = storage.get_matches(limit=last_n, battle_type=battle_type)
+    else:
+        if since_dt is _UNSET:
+            since_dt = None
+        matches = storage.get_matches_since(since_dt, battle_type=battle_type)
 
     matrix = defaultdict(lambda: defaultdict(lambda: {'wins': 0, 'losses': 0}))
     my_chars = set()

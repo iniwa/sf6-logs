@@ -1,5 +1,6 @@
 import json
 import queue
+import re
 import threading
 
 from datetime import datetime, timedelta
@@ -86,32 +87,38 @@ def status():
 
 
 def _parse_api_period():
-    """API 用の期間パラメータを解析して since_dt を返す"""
+    """API 用の期間パラメータを解析して (since_dt, last_n) を返す"""
     period = request.args.get('period')
     if not period:
-        return stats._UNSET  # デフォルト（今日）
+        return stats._UNSET, None  # デフォルト（今日）
     if period == 'all':
-        return None
+        return None, None
+
+    # lastN パターン
+    m = re.match(r'^last(\d+)$', period)
+    if m:
+        return None, int(m.group(1))
+
     if period == 'day':
         date_str = request.args.get('date')
         if date_str:
             try:
                 day = datetime.strptime(date_str, '%Y-%m-%d')
                 return day.replace(hour=0, minute=0, second=0, microsecond=0,
-                                   tzinfo=c.JST)
+                                   tzinfo=c.JST), None
             except ValueError:
                 pass
-        return c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
-    hours_map = {'24h': 24, '8h': 8, '1h': 1}
-    hours = hours_map.get(period, 24)
-    return c.get_now() - timedelta(hours=hours)
+        return c.get_now().replace(hour=0, minute=0, second=0, microsecond=0), None
+
+    return stats._UNSET, None
 
 
 @bp.route('/stats/today')
 def stats_today():
     mode = request.args.get('mode')
-    since_dt = _parse_api_period()
-    return jsonify(stats.get_today_stats(battle_type=mode, since_dt=since_dt))
+    since_dt, last_n = _parse_api_period()
+    return jsonify(stats.get_today_stats(battle_type=mode, since_dt=since_dt,
+                                         last_n=last_n))
 
 
 @bp.route('/stats/session')
@@ -149,7 +156,9 @@ def stats_opponents():
 def stats_lp_history():
     limit = request.args.get('limit', 50, type=int)
     mode = request.args.get('mode')
-    return jsonify(stats.get_lp_mr_history(limit=limit, battle_type=mode))
+    since_dt, last_n = _parse_api_period()
+    return jsonify(stats.get_lp_mr_history(limit=limit, battle_type=mode,
+                                           since_dt=since_dt, last_n=last_n))
 
 
 @bp.route('/stats/calendar')
@@ -164,7 +173,9 @@ def stats_calendar():
 def stats_hourly():
     mode = request.args.get('mode')
     bt = mode if mode and mode != 'all' else None
-    return jsonify(stats.get_hourly_stats(battle_type=bt))
+    since_dt, last_n = _parse_api_period()
+    return jsonify(stats.get_hourly_stats(since_dt=since_dt, battle_type=bt,
+                                          last_n=last_n))
 
 
 @bp.route('/stats/streaks')
@@ -179,14 +190,18 @@ def stats_rematches():
     limit = request.args.get('limit', 50, type=int)
     mode = request.args.get('mode')
     bt = mode if mode and mode != 'all' else None
-    return jsonify(stats.detect_rematches(limit=limit, battle_type=bt))
+    since_dt, last_n = _parse_api_period()
+    return jsonify(stats.detect_rematches(limit=limit, battle_type=bt,
+                                          since_dt=since_dt, last_n=last_n))
 
 
 @bp.route('/stats/heatmap')
 def stats_heatmap():
     mode = request.args.get('mode')
     bt = mode if mode and mode != 'all' else None
-    return jsonify(stats.get_matchup_heatmap(battle_type=bt))
+    since_dt, last_n = _parse_api_period()
+    return jsonify(stats.get_matchup_heatmap(since_dt=since_dt, battle_type=bt,
+                                             last_n=last_n))
 
 
 @bp.route('/stats/rolling-winrate')

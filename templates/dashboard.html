@@ -13,17 +13,22 @@
 </div>
 <div class="period-tabs" style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
     {% for value, label in period_choices %}
-    <a href="/?mode={{ current_mode }}&period={{ value }}{% if value == 'day' and selected_date %}&date={{ selected_date }}{% endif %}"
+    <a href="/?mode={{ current_mode }}&period={{ value }}"
        class="btn {{ 'btn-primary' if current_period == value else 'btn-secondary' }}"
        style="text-decoration:none;font-size:0.8rem;padding:4px 12px;">
         {{ label }}
     </a>
     {% endfor %}
-    {% if current_period == 'day' %}
-    <input type="date" id="date-picker" value="{{ selected_date }}"
-           style="font-size:0.8rem;padding:4px 8px;background:var(--bg-card,#1e1e2e);color:var(--text,#eee);border:1px solid var(--border,#333);border-radius:4px;"
+    <form style="display:inline-flex;align-items:center;gap:2px;margin:0;"
+          onsubmit="location.href='/?mode={{ current_mode }}&period=last'+this.n.value;return false;">
+        <input type="number" name="n" min="1" max="9999"
+               value="{{ custom_last_n or '' }}" placeholder="50"
+               style="width:60px;font-size:0.8rem;padding:4px 6px;background:var(--bg-card,#1e1e2e);color:var(--text,#eee);border:1px solid {{ 'var(--accent-green)' if custom_last_n else 'var(--border,#333)' }};border-radius:4px;">
+        <button type="submit" class="btn btn-secondary" style="font-size:0.8rem;padding:4px 8px;">戦</button>
+    </form>
+    <input type="date" value="{{ selected_date or '' }}"
+           style="font-size:0.8rem;padding:4px 8px;background:var(--bg-card,#1e1e2e);color:var(--text,#eee);border:1px solid {{ 'var(--accent-green)' if current_period == 'day' else 'var(--border,#333)' }};border-radius:4px;"
            onchange="location.href='/?mode={{ current_mode }}&period=day&date='+this.value">
-    {% endif %}
 </div>
 
 <div class="summary-row">
@@ -303,7 +308,11 @@ function refreshStats() {
 setInterval(refreshStats, 10000);
 
 // LP/MR chart
-fetchJSON('/api/stats/lp-history?limit=50' + (currentMode !== 'all' ? '&mode=' + currentMode : ''), function(data) {
+var lpParams = 'limit=50';
+if (currentMode !== 'all') lpParams += '&mode=' + currentMode;
+if (currentPeriod) lpParams += '&period=' + currentPeriod;
+if (currentPeriod === 'day' && selectedDate) lpParams += '&date=' + selectedDate;
+fetchJSON('/api/stats/lp-history?' + lpParams, function(data) {
     renderLpChart('lp-chart', data);
 });
 
@@ -330,7 +339,7 @@ fetchJSON('/api/stats/rematches' + apiQuery, function(data) {
 });
 
 // Activity Calendar (SVG heatmap)
-fetchJSON('/api/stats/calendar?days=90', function(data) {
+fetchJSON('/api/stats/calendar?days=90' + (currentMode !== 'all' ? '&mode=' + currentMode : ''), function(data) {
     renderCalendar('activity-calendar', data);
 });
 
@@ -371,7 +380,7 @@ function renderCalendar(containerId, data) {
 }
 
 // Hourly performance chart
-fetchJSON('/api/stats/hourly', function(data) {
+fetchJSON('/api/stats/hourly' + apiQuery, function(data) {
     renderHourlyChart('hourly-chart', data);
 });
 
@@ -412,7 +421,7 @@ function renderHourlyChart(containerId, data) {
 }
 
 // Matchup Heatmap
-fetchJSON('/api/stats/heatmap', function(data) {
+fetchJSON('/api/stats/heatmap' + apiQuery, function(data) {
     renderHeatmap('matchup-heatmap', data);
 });
 
