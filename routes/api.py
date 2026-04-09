@@ -116,15 +116,17 @@ def _parse_api_period():
 @bp.route('/stats/today')
 def stats_today():
     mode = request.args.get('mode')
+    char = request.args.get('char')
     since_dt, last_n = _parse_api_period()
     return jsonify(stats.get_today_stats(battle_type=mode, since_dt=since_dt,
-                                         last_n=last_n))
+                                         last_n=last_n, my_character=char))
 
 
 @bp.route('/stats/session')
 def stats_session():
     mode = request.args.get('mode')
-    return jsonify(stats.get_session_stats(battle_type=mode))
+    char = request.args.get('char')
+    return jsonify(stats.get_session_stats(battle_type=mode, my_character=char))
 
 
 @bp.route('/matches')
@@ -210,6 +212,21 @@ def stats_rolling_winrate():
     mode = request.args.get('mode')
     bt = mode if mode and mode != 'all' else None
     return jsonify(stats.get_rolling_winrate(window=window, battle_type=bt))
+
+
+@bp.route('/goal')
+def goal_get():
+    progress = stats.get_goal_progress()
+    if progress is None:
+        return jsonify({'active': False})
+    return jsonify({'active': True, **progress})
+
+
+@bp.route('/stats/highlight')
+def stats_highlight():
+    mode = request.args.get('mode')
+    bt = mode if mode and mode != 'all' else None
+    return jsonify(stats.get_highlight_stats(battle_type=bt))
 
 
 @bp.route('/sessions')

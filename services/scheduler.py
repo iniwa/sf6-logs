@@ -1,5 +1,7 @@
 import time
 import threading
+from datetime import datetime, timedelta
+
 from apscheduler.schedulers.background import BackgroundScheduler
 
 import config as c
@@ -82,6 +84,7 @@ def _poll_job():
 
         if new_count > 0:
             c.log(f'Fetched {new_count} new match(es)')
+            _auto_session_start()
 
     except Exception as e:
         error_msg = str(e)
@@ -148,6 +151,39 @@ def _backfill_prev_after(match):
         storage.update_match_lp_mr(prev['id'], prev.get('lp_after'), prev.get('mr_after'))
 
 
+def _auto_session_start():
+    """自動セッション: 有効かつアクティブセッションがなければ開始"""
+    if storage.get_config('session_auto', 'false') != 'true':
+        return
+    session = storage.get_current_session()
+    if session:
+        return
+    label = c.get_now().strftime('%Y-%m-%d %H:%M') + ' (auto)'
+    storage.start_session(label)
+    c.log('Auto session started')
+
+
+def _auto_session_check():
+    """自動セッション: 30分間マッチがなければ終了"""
+    if storage.get_config('session_auto', 'false') != 'true':
+        return
+    session = storage.get_current_session()
+    if not session:
+        return
+
+    timeout_minutes = 30
+    cutoff = c.get_now() - timedelta(minutes=timeout_minutes)
+    recent = storage.get_matches_since(cutoff)
+    if not recent:
+        session_start = datetime.fromisoformat(session['started_at'])
+        if session_start.tzinfo is None:
+            session_start = session_start.replace(tzinfo=c.JST)
+        if c.get_now() - session_start < timedelta(minutes=timeout_minutes):
+            return
+        storage.end_session(session['id'])
+        c.log('Auto session ended (30min inactivity)')
+
+
 def start_scheduler():
     storage.init_db()
     interval = int(storage.get_config('poll_interval', '90'))
@@ -159,6 +195,11 @@ def start_scheduler():
     scheduler.add_job(
         _check_auth_job, 'interval', minutes=10,
         id='auth_check', replace_existing=True
+    )
+    # 自動セッションチェック: 5分ごと
+    scheduler.add_job(
+        _auto_session_check, 'interval', minutes=5,
+        id='auto_session_check', replace_existing=True
     )
     scheduler.start()
     with _status_lock:

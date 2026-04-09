@@ -310,3 +310,121 @@ body {
     font-weight: 700;
     color: var(--ovl-text);
 }
+
+/* --- Highlight Summary --- */
+.highlight-card {
+    display: inline-flex;
+    flex-direction: column;
+    gap: calc(10px * var(--ovl-scale, 1));
+    padding: calc(20px * var(--ovl-scale, 1)) calc(28px * var(--ovl-scale, 1));
+    background: var(--ovl-bg);
+    border-radius: var(--ovl-radius);
+    min-width: calc(300px * var(--ovl-scale, 1));
+}
+
+.highlight-title {
+    font-size: calc(12px * var(--ovl-scale, 1));
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--ovl-muted);
+    text-transform: uppercase;
+}
+
+.highlight-record {
+    font-size: calc(32px * var(--ovl-scale, 1));
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+.highlight-wins { color: var(--ovl-win); }
+.highlight-losses { color: var(--ovl-lose); }
+.highlight-sep { color: var(--ovl-muted); margin: 0 calc(4px * var(--ovl-scale, 1)); }
+.highlight-winrate {
+    color: var(--ovl-muted);
+    font-size: calc(22px * var(--ovl-scale, 1));
+    margin-left: calc(8px * var(--ovl-scale, 1));
+}
+
+.highlight-rating {
+    font-size: calc(18px * var(--ovl-scale, 1));
+    color: var(--ovl-sub);
+}
+.highlight-label {
+    font-weight: 600;
+    margin-right: calc(4px * var(--ovl-scale, 1));
+}
+.highlight-value { font-weight: 700; color: var(--ovl-text); }
+.highlight-arrow { margin: 0 calc(6px * var(--ovl-scale, 1)); color: var(--ovl-muted); }
+.highlight-delta { font-size: calc(16px * var(--ovl-scale, 1)); font-weight: 600; margin-left: calc(4px * var(--ovl-scale, 1)); }
+
+.highlight-stats {
+    display: flex;
+    flex-direction: column;
+    gap: calc(6px * var(--ovl-scale, 1));
+    padding-top: calc(8px * var(--ovl-scale, 1));
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.highlight-stat {
+    display: flex;
+    justify-content: space-between;
+    font-size: calc(14px * var(--ovl-scale, 1));
+}
+.highlight-stat-label { color: var(--ovl-muted); }
+.highlight-stat-value { color: var(--ovl-text); font-weight: 600; }
+
+.highlight-duration {
+    font-size: calc(12px * var(--ovl-scale, 1));
+    color: var(--ovl-muted);
+    text-align: right;
+}
+
+/* --- Goal Progress Bar --- */
+.goal-bar {
+    display: flex;
+    flex-direction: column;
+    gap: calc(4px * var(--ovl-scale, 1));
+    padding-top: calc(6px * var(--ovl-scale, 1));
+}
+
+.goal-label {
+    font-size: calc(11px * var(--ovl-scale, 1));
+    color: var(--ovl-muted);
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.goal-track {
+    height: calc(8px * var(--ovl-scale, 1));
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: calc(4px * var(--ovl-scale, 1));
+    overflow: hidden;
+}
+
+.goal-fill {
+    height: 100%;
+    background: var(--ovl-win);
+    border-radius: calc(4px * var(--ovl-scale, 1));
+    transition: width 0.5s ease-out;
+    min-width: 0;
+}
+
+.goal-reached {
+    background: linear-gradient(90deg, var(--ovl-win), var(--ovl-streak-win));
+    animation: goal-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes goal-pulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.3); }
+}
+
+.goal-values {
+    display: flex;
+    justify-content: flex-end;
+    gap: calc(4px * var(--ovl-scale, 1));
+    font-size: calc(12px * var(--ovl-scale, 1));
+    color: var(--ovl-sub);
+}
+
+.goal-values #goal-current { font-weight: 700; color: var(--ovl-text); }
+.goal-target { color: var(--ovl-muted); }

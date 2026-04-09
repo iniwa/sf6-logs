@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request
 
-from services import stats
+from services import stats, storage
 
 bp = Blueprint('overlay', __name__)
 
@@ -31,8 +31,25 @@ def _overlay_context():
     if mode not in VALID_MODES:
         mode = 'all'
     bt = mode if mode != 'all' else None
-    today = stats.get_session_stats(battle_type=bt)
-    recent = stats.get_recent_results(count=10, battle_type=bt)
+
+    # Character filter
+    char_param = request.args.get('char', '')
+    char_filter = None
+    if char_param == 'auto':
+        recent_match = storage.get_matches(limit=1, battle_type=bt)
+        if recent_match:
+            char_filter = recent_match[0]['my_character']
+    elif char_param:
+        char_filter = char_param
+
+    today = stats.get_session_stats(battle_type=bt, my_character=char_filter)
+    recent = stats.get_recent_results(count=10, battle_type=bt, my_character=char_filter)
+
+    # Goal progress bar
+    goal = None
+    if request.args.get('goal', '0') == '1':
+        goal = stats.get_goal_progress()
+
     return {
         'theme': theme,
         'size': size,
@@ -41,6 +58,8 @@ def _overlay_context():
         'streak': streak,
         'pos': pos,
         'mode': mode,
+        'char_filter': char_filter or '',
+        'goal': goal,
         'today': today,
         'recent': recent,
     }
@@ -69,6 +88,14 @@ def history():
 @bp.route('/overlay/popup')
 def popup():
     return render_template('overlay/popup.html', **_overlay_context())
+
+
+@bp.route('/overlay/highlight')
+def highlight():
+    ctx = _overlay_context()
+    bt = ctx['mode'] if ctx['mode'] != 'all' else None
+    highlight_data = stats.get_highlight_stats(battle_type=bt)
+    return render_template('overlay/highlight.html', **ctx, highlight=highlight_data)
 
 
 @bp.route('/overlay/preview')

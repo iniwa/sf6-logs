@@ -75,6 +75,39 @@ def save_popup_notifications():
     return redirect(url_for('settings.overlay_settings'))
 
 
+@bp.route('/settings/session_auto', methods=['POST'])
+def toggle_session_auto():
+    current = storage.get_config('session_auto', 'false')
+    new_value = 'false' if current == 'true' else 'true'
+    storage.set_config('session_auto', new_value)
+    return redirect(url_for('settings.overlay_settings'))
+
+
+@bp.route('/settings/goal', methods=['POST'])
+def save_goal():
+    goal_type = request.form.get('goal_type', '')
+    goal_value = request.form.get('goal_value', '')
+    goal_label = request.form.get('goal_label', '').strip()
+    if goal_type not in ('mr', 'lp', 'winrate', ''):
+        goal_type = ''
+    storage.set_config('goal_type', goal_type)
+    storage.set_config('goal_value', goal_value)
+    storage.set_config('goal_label', goal_label)
+    return redirect(url_for('settings.overlay_settings'))
+
+
+@bp.route('/settings/char_filter', methods=['POST'])
+def save_char_filter():
+    mode = request.form.get('char_filter_mode', 'off')
+    if mode not in ('off', 'auto', 'manual'):
+        mode = 'off'
+    storage.set_config('overlay_char_filter', mode)
+    char_name = request.form.get('char_filter_manual', '').strip()
+    if char_name:
+        storage.set_config('overlay_char_manual', char_name)
+    return redirect(url_for('settings.overlay_settings'))
+
+
 @bp.route('/settings/session/start', methods=['POST'])
 def session_start():
     label = request.form.get('label', '').strip()

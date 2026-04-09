@@ -13,6 +13,17 @@
         {{ session.label or '(no label)' }} — started {{ session.started_at | format_datetime }}
         {% endif %}
     </p>
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:4px;">
+        <span style="color:var(--text-dim);font-size:0.85rem;font-weight:600;">Mode:</span>
+        <form method="POST" action="/settings/session_auto" style="display:flex;gap:12px;align-items:center;">
+            <button type="submit" class="btn btn-secondary" style="font-size:0.8rem;padding:4px 12px;">
+                {{ 'Switch to Manual' if config.session_auto == 'true' else 'Switch to Auto' }}
+            </button>
+            <span style="font-size:0.85rem;color:{{ 'var(--accent-green)' if config.session_auto == 'true' else 'var(--text-dim)' }};">
+                {{ 'Auto (30分で自動終了)' if config.session_auto == 'true' else 'Manual' }}
+            </span>
+        </form>
+    </div>
     <div style="display: flex; gap: 12px; flex-wrap: wrap;">
         <form method="POST" action="/settings/session/start" style="display: flex; gap: 8px; align-items: center;">
             <input type="text" name="label" placeholder="Session label (optional)" style="width: 200px;">
@@ -22,6 +33,31 @@
             <button type="submit" class="btn btn-secondary">End Session</button>
         </form>
     </div>
+</div>
+
+<!-- Character Filter -->
+<div class="card">
+    <h2>Character Filter</h2>
+    <p style="margin-bottom: 12px; color: var(--text-dim); font-size: 0.9rem;">
+        オーバーレイを特定キャラクターの戦績のみに絞り込みます。Auto は最新の試合で使用したキャラを自動検出します。
+    </p>
+    <form method="POST" action="/settings/char_filter">
+        <div style="display:flex;gap:16px;margin-bottom:12px;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="radio" name="char_filter_mode" value="off" {{ 'checked' if config.overlay_char_filter == 'off' or not config.overlay_char_filter }} onchange="toggleCharManual()"> Off
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="radio" name="char_filter_mode" value="auto" {{ 'checked' if config.overlay_char_filter == 'auto' }} onchange="toggleCharManual()"> Auto
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="radio" name="char_filter_mode" value="manual" {{ 'checked' if config.overlay_char_filter == 'manual' }} onchange="toggleCharManual()"> Manual
+            </label>
+        </div>
+        <div id="char-manual-wrap" style="display:{{ 'block' if config.overlay_char_filter == 'manual' else 'none' }};margin-bottom:12px;">
+            <input type="text" name="char_filter_manual" value="{{ config.overlay_char_manual or '' }}" placeholder="Character name (e.g. Ryu)" style="width:200px;">
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
 </div>
 
 <!-- Session History -->
@@ -53,6 +89,7 @@
                 <option value="/overlay/lp">LP / MR Only</option>
                 <option value="/overlay/history">Match History Only</option>
                 <option value="/overlay/popup">Popup Notification</option>
+                <option value="/overlay/highlight">Highlight Summary (End Screen)</option>
             </select>
         </div>
 
@@ -113,6 +150,9 @@
         </label>
         <label style="display:flex;align-items:center;gap:6px;color:var(--text-dim);font-size:0.85rem;cursor:pointer;">
             <input type="checkbox" id="ovl-streak" checked onchange="buildUrls()"> Streak
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;color:var(--text-dim);font-size:0.85rem;cursor:pointer;">
+            <input type="checkbox" id="ovl-goal" onchange="buildUrls()"> Goal Progress
         </label>
         <label id="ovl-test-wrap" style="display:none;align-items:center;gap:6px;color:var(--text-dim);font-size:0.85rem;cursor:pointer;">
             <input type="checkbox" id="ovl-test" onchange="buildUrls()"> Test Display (常時表示)
@@ -216,6 +256,30 @@
     </form>
 </div>
 
+<!-- Goal Settings -->
+<div class="card">
+    <h2>Goal / Progress Bar</h2>
+    <p style="margin-bottom: 12px; color: var(--text-dim); font-size: 0.9rem;">
+        目標を設定すると、オーバーレイにプログレスバーを表示できます。URL に <code>?goal=1</code> を追加して有効化。
+    </p>
+    <form method="POST" action="/settings/goal">
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-items:center;margin-bottom:12px;">
+            <label style="color:var(--text-dim);font-size:0.85rem;">Type</label>
+            <select name="goal_type" style="width:200px;">
+                <option value="" {{ 'selected' if not config.goal_type }}>None (disabled)</option>
+                <option value="mr" {{ 'selected' if config.goal_type == 'mr' }}>MR</option>
+                <option value="lp" {{ 'selected' if config.goal_type == 'lp' }}>LP</option>
+                <option value="winrate" {{ 'selected' if config.goal_type == 'winrate' }}>Win Rate (%)</option>
+            </select>
+            <label style="color:var(--text-dim);font-size:0.85rem;">Target</label>
+            <input type="number" name="goal_value" value="{{ config.goal_value or '' }}" placeholder="e.g. 1800" style="width:200px;" step="any">
+            <label style="color:var(--text-dim);font-size:0.85rem;">Label (optional)</label>
+            <input type="text" name="goal_label" value="{{ config.goal_label or '' }}" placeholder="Custom label" style="width:200px;">
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+</div>
+
 <!-- OBS Browser Source Recommended Resolutions -->
 <div class="card">
     <h2>OBS Browser Source — Recommended Resolutions</h2>
@@ -231,6 +295,7 @@
             <tr><td>LP / MR Only</td><td>250</td><td>60</td><td>現在値 + 差分のみ</td></tr>
             <tr><td>Match History</td><td>500</td><td>60</td><td>直近の勝敗ドット列</td></tr>
             <tr><td>Popup Notification</td><td>400</td><td>200</td><td>マッチ結果 + マイルストーン通知 (?pos=left で左配置)</td></tr>
+            <tr><td>Highlight Summary</td><td>500</td><td>300</td><td>配信終了時のサマリーカード</td></tr>
         </tbody>
     </table>
     <p style="margin-top: 8px; color: var(--text-dim); font-size: 0.8rem;">
@@ -254,6 +319,7 @@
                 ('LP / MR Only', '/overlay/lp'),
                 ('Match History Only', '/overlay/history'),
                 ('Popup Notification', '/overlay/popup'),
+                ('Highlight Summary', '/overlay/highlight'),
             ] %}
             {% for label, path in overlays %}
             <tr>
@@ -300,6 +366,17 @@ function buildUrls() {
     if (!isPopup && !anim) params.push('anim=0');
     if (!isPopup && !streak) params.push('streak=0');
     if (isPopup && test) params.push('test=1');
+    var goal = document.getElementById('ovl-goal').checked;
+    if (!isPopup && goal) params.push('goal=1');
+
+    // Char filter from settings
+    var charFilterMode = '{{ config.overlay_char_filter or "off" }}';
+    var charFilterManual = '{{ config.overlay_char_manual or "" }}';
+    if (charFilterMode === 'auto') {
+        params.push('char=auto');
+    } else if (charFilterMode === 'manual' && charFilterManual) {
+        params.push('char=' + encodeURIComponent(charFilterManual));
+    }
 
     var qs = params.length > 0 ? '?' + params.join('&') : '';
 
@@ -359,6 +436,11 @@ function resizePreview() {
     var h = document.getElementById('preview-height').value;
     document.getElementById('ovl-preview').style.height = h + 'px';
     document.getElementById('preview-height-label').textContent = h + 'px';
+}
+
+function toggleCharManual() {
+    var mode = document.querySelector('input[name="char_filter_mode"]:checked').value;
+    document.getElementById('char-manual-wrap').style.display = mode === 'manual' ? 'block' : 'none';
 }
 
 // Init

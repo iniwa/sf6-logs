@@ -10,7 +10,9 @@
 
     <script>
     var overlayMode = '{{ mode }}';
+    var overlayChar = '{{ char_filter }}';
     var modeParam = overlayMode !== 'all' ? 'mode=' + overlayMode : '';
+    var charParam = overlayChar ? 'char=' + encodeURIComponent(overlayChar) : '';
     {% block scripts %}{% endblock %}
     </script>
     <script src="/static/js/overlay-sse.js"></script>

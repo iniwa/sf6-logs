@@ -1,0 +1,88 @@
+{% extends "overlay/base_overlay.html" %}
+{% block content %}
+<div class="highlight-card">
+    <div class="highlight-title" id="highlight-title">
+        {{ 'SESSION SUMMARY' if highlight.has_session else "TODAY'S SUMMARY" }}
+    </div>
+    <div class="highlight-record">
+        <span class="highlight-wins" id="hl-wins">W{{ highlight.wins }}</span>
+        <span class="highlight-sep">-</span>
+        <span class="highlight-losses" id="hl-losses">L{{ highlight.losses }}</span>
+        <span class="highlight-winrate" id="hl-winrate">({{ highlight.winrate }}%)</span>
+    </div>
+    {% if highlight.is_master and highlight.mr_start is not none %}
+    <div class="highlight-rating">
+        <span class="highlight-label">MR</span>
+        <span class="highlight-value">{{ highlight.mr_start }}</span>
+        <span class="highlight-arrow">&rarr;</span>
+        <span class="highlight-value" id="hl-end">{{ highlight.mr_end if highlight.mr_end is not none else '-' }}</span>
+        {% if highlight.mr_delta is not none %}
+        <span class="highlight-delta {{ 'delta-pos' if highlight.mr_delta >= 0 else 'delta-neg' }}" id="hl-delta">({{ '+%d' % highlight.mr_delta if highlight.mr_delta >= 0 else highlight.mr_delta }})</span>
+        {% endif %}
+    </div>
+    {% elif highlight.lp_start is not none %}
+    <div class="highlight-rating">
+        <span class="highlight-label">LP</span>
+        <span class="highlight-value">{{ highlight.lp_start }}</span>
+        <span class="highlight-arrow">&rarr;</span>
+        <span class="highlight-value" id="hl-end">{{ highlight.lp_end if highlight.lp_end is not none else '-' }}</span>
+        {% if highlight.lp_delta is not none %}
+        <span class="highlight-delta {{ 'delta-pos' if highlight.lp_delta >= 0 else 'delta-neg' }}" id="hl-delta">({{ '+%d' % highlight.lp_delta if highlight.lp_delta >= 0 else highlight.lp_delta }})</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    <div class="highlight-stats">
+        {% if highlight.best_win_streak > 0 %}
+        <div class="highlight-stat">
+            <span class="highlight-stat-label">Best Streak</span>
+            <span class="highlight-stat-value streak-win">{{ highlight.best_win_streak }}連勝</span>
+        </div>
+        {% endif %}
+        {% if highlight.most_used_char %}
+        <div class="highlight-stat">
+            <span class="highlight-stat-label">Main</span>
+            <span class="highlight-stat-value">{{ highlight.most_used_char.name }} ({{ highlight.most_used_char.winrate }}%)</span>
+        </div>
+        {% endif %}
+        {% if highlight.most_faced_opp %}
+        <div class="highlight-stat">
+            <span class="highlight-stat-label">Most Faced</span>
+            <span class="highlight-stat-value">{{ highlight.most_faced_opp.name }} {{ highlight.most_faced_opp.wins }}W-{{ highlight.most_faced_opp.losses }}L</span>
+        </div>
+        {% endif %}
+    </div>
+    <div class="highlight-duration" id="highlight-duration"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+function updateStats(d) {}
+
+var startedAt = '{{ highlight.started_at }}';
+function updateDuration() {
+    var start = new Date(startedAt);
+    var now = new Date();
+    var diff = Math.floor((now - start) / 1000);
+    var h = Math.floor(diff / 3600);
+    var m = Math.floor((diff % 3600) / 60);
+    var el = document.getElementById('highlight-duration');
+    if (h > 0) {
+        el.textContent = h + 'h ' + m + 'm';
+    } else {
+        el.textContent = m + 'm';
+    }
+}
+updateDuration();
+setInterval(updateDuration, 60000);
+
+/* Auto refresh every 30s */
+setInterval(function() {
+    var modeQ = overlayMode !== 'all' ? '?mode=' + overlayMode : '';
+    fetch('/api/stats/highlight' + modeQ)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            document.getElementById('hl-wins').textContent = 'W' + data.wins;
+            document.getElementById('hl-losses').textContent = 'L' + data.losses;
+            document.getElementById('hl-winrate').textContent = '(' + data.winrate + '%)';
+        });
+}, 30000);
+{% endblock %}

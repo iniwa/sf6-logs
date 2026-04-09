@@ -36,6 +36,18 @@
         <span class="dot {{ 'dot-win' if r.result == 'win' else 'dot-lose' }}"></span>
         {% endfor %}
     </div>
+    {% if goal %}
+    <div class="goal-bar" id="goal-bar">
+        <div class="goal-label" id="goal-label">{{ goal.label }}</div>
+        <div class="goal-track">
+            <div class="goal-fill {{ 'goal-reached' if goal.reached }}" id="goal-fill" style="width: {{ goal.progress }}%"></div>
+        </div>
+        <div class="goal-values">
+            <span id="goal-current">{{ goal.current }}</span>
+            <span class="goal-target">/ {{ goal.target | int if goal.type != 'winrate' else goal.target }}{{ '%' if goal.type == 'winrate' else '' }}</span>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 {% block scripts %}
@@ -77,6 +89,23 @@ function updateStats(d) {
         if (deltaEl.textContent !== newDelta) { deltaEl.textContent = newDelta; animateChange(deltaEl, delta > 0 ? 'value-changed-win' : 'value-changed-lose'); }
         deltaEl.className = delta > 0 ? 'delta-pos' : delta < 0 ? 'delta-neg' : '';
     }
+    /* goal progress update */
+    var goalBar = document.getElementById('goal-bar');
+    if (goalBar) {
+        fetch('/api/goal').then(function(r) { return r.json(); }).then(function(g) {
+            if (!g.active) return;
+            var lbl = document.getElementById('goal-label');
+            var cur = document.getElementById('goal-current');
+            var fill = document.getElementById('goal-fill');
+            if (lbl) lbl.textContent = g.label;
+            if (cur) cur.textContent = g.current;
+            if (fill) {
+                fill.style.width = g.progress + '%';
+                if (g.reached) fill.classList.add('goal-reached');
+                else fill.classList.remove('goal-reached');
+            }
+        });
+    }
     /* streak */
     var streakEl = document.getElementById('streak');
     if (streakEl && _showStreak) {
@@ -93,7 +122,9 @@ function updateStats(d) {
 
 var _prevMatchIds = null;
 function refreshHistory() {
-    fetch('/api/matches?limit=10' + (modeParam ? '&type=' + overlayMode : ''))
+    var qs = '?limit=10';
+    if (modeParam) qs += '&type=' + overlayMode;
+    fetch('/api/matches' + qs)
         .then(function(r) { return r.json(); })
         .then(function(matches) {
             var hist = document.getElementById('history');
@@ -113,7 +144,8 @@ function refreshHistory() {
 }
 
 function refresh() {
-    fetch('/api/stats/session' + (modeParam ? '?' + modeParam : '')).then(function(r) { return r.json(); }).then(updateStats);
+    var params = [modeParam, charParam].filter(Boolean).join('&');
+    fetch('/api/stats/session' + (params ? '?' + params : '')).then(function(r) { return r.json(); }).then(updateStats);
     refreshHistory();
 }
 {% endblock %}

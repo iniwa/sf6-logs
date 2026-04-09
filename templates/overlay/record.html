@@ -12,6 +12,18 @@
         <span class="streak" id="streak" style="display:none;"></span>
         {% endif %}
     </div>
+    {% if goal %}
+    <div class="goal-bar" id="goal-bar">
+        <div class="goal-label" id="goal-label">{{ goal.label }}</div>
+        <div class="goal-track">
+            <div class="goal-fill {{ 'goal-reached' if goal.reached }}" id="goal-fill" style="width: {{ goal.progress }}%"></div>
+        </div>
+        <div class="goal-values">
+            <span id="goal-current">{{ goal.current }}</span>
+            <span class="goal-target">/ {{ goal.target | int if goal.type != 'winrate' else goal.target }}{{ '%' if goal.type == 'winrate' else '' }}</span>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 {% block scripts %}

@@ -9,6 +9,7 @@
 
     var pollFallback = null;
     var useMode = typeof overlayMode !== 'undefined' && overlayMode !== 'all';
+    var useChar = typeof overlayChar !== 'undefined' && overlayChar !== '';
 
     function startPolling() {
         if (pollFallback) return;
@@ -17,8 +18,8 @@
         }, 5000);
     }
 
-    // モード指定時は SSE の全体データが使えないためポーリング
-    if (useMode || typeof EventSource === 'undefined') {
+    // モード指定時/キャラフィルター時は SSE の全体データが使えないためポーリング
+    if (useMode || useChar || typeof EventSource === 'undefined') {
         startPolling();
         return;
     }

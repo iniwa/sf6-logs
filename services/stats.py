@@ -49,8 +49,10 @@ def _fetch_matches(since_dt=_UNSET, battle_type=None, last_n=None):
     return storage.get_matches_since(since_dt, battle_type=battle_type)
 
 
-def get_today_stats(battle_type=None, since_dt=_UNSET, last_n=None):
+def get_today_stats(battle_type=None, since_dt=_UNSET, last_n=None, my_character=None):
     matches = _fetch_matches(since_dt=since_dt, battle_type=battle_type, last_n=last_n)
+    if my_character:
+        matches = [m for m in matches if m['my_character'] == my_character]
 
     wins = sum(1 for m in matches if m['result'] == 'win')
     losses = sum(1 for m in matches if m['result'] == 'lose')
@@ -89,13 +91,15 @@ def get_today_stats(battle_type=None, since_dt=_UNSET, last_n=None):
     }
 
 
-def get_session_stats(battle_type=None):
+def get_session_stats(battle_type=None, my_character=None):
     session = storage.get_current_session()
     if not session:
-        return get_today_stats(battle_type=battle_type)
+        return get_today_stats(battle_type=battle_type, my_character=my_character)
 
     since = datetime.fromisoformat(session['started_at'])
     matches = storage.get_matches_since(since, battle_type=battle_type)
+    if my_character:
+        matches = [m for m in matches if m['my_character'] == my_character]
 
     wins = sum(1 for m in matches if m['result'] == 'win')
     losses = sum(1 for m in matches if m['result'] == 'lose')
@@ -147,8 +151,10 @@ def get_current_lp():
     }
 
 
-def get_recent_results(count=10, battle_type=None):
-    matches = storage.get_matches(limit=count, battle_type=battle_type)
+def get_recent_results(count=10, battle_type=None, my_character=None):
+    matches = storage.get_matches(limit=count * 3 if my_character else count, battle_type=battle_type)
+    if my_character:
+        matches = [m for m in matches if m['my_character'] == my_character][:count]
     return [
         {
             'result': m['result'],
@@ -592,3 +598,167 @@ def check_milestone(match_dict):
                 })
 
     return notifications
+
+
+# --- ハイライトサマリー ---
+
+def get_highlight_stats(battle_type=None):
+    """配信ハイライト用のサマリーデータを返す"""
+    session = storage.get_current_session()
+    if session:
+        since = datetime.fromisoformat(session['started_at'])
+        matches = storage.get_matches_since(since, battle_type=battle_type)
+        started_at = session['started_at']
+    else:
+        since = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
+        matches = storage.get_matches_since(since, battle_type=battle_type)
+        started_at = since.isoformat()
+
+    wins = sum(1 for m in matches if m['result'] == 'win')
+    losses = sum(1 for m in matches if m['result'] == 'lose')
+    total = wins + losses
+    winrate = round(wins / total * 100, 1) if total > 0 else 0.0
+
+    # LP/MR delta
+    lp_start = mr_start = lp_end = mr_end = None
+    if matches:
+        oldest = matches[-1]
+        latest = matches[0]
+        lp_start = oldest.get('lp_before')
+        mr_start = oldest.get('mr_before')
+        lp_end = _latest_lp(latest)
+        mr_end = _latest_mr(latest)
+
+    # Best streak during session
+    best_win_streak = 0
+    best_lose_streak = 0
+    if matches:
+        asc_matches = list(reversed(matches))
+        current_type = None
+        current_count = 0
+        for m in asc_matches:
+            if m['result'] == current_type:
+                current_count += 1
+            else:
+                current_type = m['result']
+                current_count = 1
+            if current_type == 'win' and current_count > best_win_streak:
+                best_win_streak = current_count
+            elif current_type == 'lose' and current_count > best_lose_streak:
+                best_lose_streak = current_count
+
+    # Most-faced opponent character
+    opp_chars = defaultdict(lambda: {'wins': 0, 'losses': 0})
+    for m in matches:
+        if m['result'] == 'win':
+            opp_chars[m['opp_character']]['wins'] += 1
+        else:
+            opp_chars[m['opp_character']]['losses'] += 1
+    most_faced_opp = None
+    if opp_chars:
+        name = max(opp_chars, key=lambda k: opp_chars[k]['wins'] + opp_chars[k]['losses'])
+        t = opp_chars[name]['wins'] + opp_chars[name]['losses']
+        most_faced_opp = {
+            'name': name, 'count': t,
+            'wins': opp_chars[name]['wins'], 'losses': opp_chars[name]['losses'],
+            'winrate': round(opp_chars[name]['wins'] / t * 100, 1) if t > 0 else 0.0,
+        }
+
+    # Most-used character
+    my_chars = defaultdict(lambda: {'wins': 0, 'losses': 0})
+    for m in matches:
+        if m['result'] == 'win':
+            my_chars[m['my_character']]['wins'] += 1
+        else:
+            my_chars[m['my_character']]['losses'] += 1
+    most_used_char = None
+    if my_chars:
+        name = max(my_chars, key=lambda k: my_chars[k]['wins'] + my_chars[k]['losses'])
+        t = my_chars[name]['wins'] + my_chars[name]['losses']
+        most_used_char = {
+            'name': name, 'count': t,
+            'wins': my_chars[name]['wins'], 'losses': my_chars[name]['losses'],
+            'winrate': round(my_chars[name]['wins'] / t * 100, 1) if t > 0 else 0.0,
+        }
+
+    return {
+        'wins': wins, 'losses': losses, 'total': total, 'winrate': winrate,
+        'lp_start': lp_start, 'lp_end': lp_end,
+        'lp_delta': (lp_end - lp_start) if lp_start is not None and lp_end is not None else None,
+        'mr_start': mr_start, 'mr_end': mr_end,
+        'mr_delta': (mr_end - mr_start) if mr_start is not None and mr_end is not None else None,
+        'is_master': is_master(),
+        'best_win_streak': best_win_streak, 'best_lose_streak': best_lose_streak,
+        'most_faced_opp': most_faced_opp, 'most_used_char': most_used_char,
+        'started_at': started_at, 'has_session': session is not None,
+    }
+
+
+# --- 目標プログレス ---
+
+def get_goal_progress():
+    """目標に対する進捗を返す"""
+    goal_type = storage.get_config('goal_type', '')
+    goal_value_str = storage.get_config('goal_value', '')
+    goal_label = storage.get_config('goal_label', '')
+
+    if not goal_type or not goal_value_str:
+        return None
+
+    try:
+        goal_value = float(goal_value_str)
+    except (ValueError, TypeError):
+        return None
+
+    current = None
+    if goal_type == 'mr':
+        lp_data = get_current_lp()
+        current = lp_data.get('mr')
+        if not goal_label:
+            goal_label = f'MR {int(goal_value)}'
+    elif goal_type == 'lp':
+        lp_data = get_current_lp()
+        current = lp_data.get('lp')
+        if not goal_label:
+            goal_label = f'LP {int(goal_value)}'
+    elif goal_type == 'winrate':
+        today = get_session_stats()
+        current = today.get('winrate')
+        if not goal_label:
+            goal_label = f'Win Rate {goal_value}%'
+
+    if current is None:
+        return None
+
+    if goal_type == 'winrate':
+        progress = min(round(current / goal_value * 100, 1), 100) if goal_value > 0 else 0
+    else:
+        session = storage.get_current_session()
+        if session:
+            since = datetime.fromisoformat(session['started_at'])
+            matches = storage.get_matches_since(since)
+        else:
+            since = c.get_now().replace(hour=0, minute=0, second=0, microsecond=0)
+            matches = storage.get_matches_since(since)
+
+        start_val = current
+        if matches:
+            oldest = matches[-1]
+            start_val = oldest.get('mr_before' if goal_type == 'mr' else 'lp_before') or current
+
+        range_total = goal_value - start_val
+        if range_total > 0:
+            progress = min(round((current - start_val) / range_total * 100, 1), 100)
+        elif current >= goal_value:
+            progress = 100
+        else:
+            progress = 0
+
+    return {
+        'type': goal_type,
+        'target': goal_value,
+        'current': current,
+        'progress': max(0, progress),
+        'label': goal_label,
+        'reached': current >= goal_value,
+    }

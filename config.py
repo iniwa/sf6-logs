@@ -32,6 +32,15 @@ DEFAULT_CONFIG = {
     'popup_mr_milestone': '1',
     'popup_streak_record': '1',
     'popup_best_mr': '1',
+    # キャラフィルター設定
+    'overlay_char_filter': 'off',     # off | auto | manual
+    'overlay_char_manual': '',
+    # 目標設定
+    'goal_type': '',         # mr, lp, winrate, or empty
+    'goal_value': '',
+    'goal_label': '',
+    # セッション自動化
+    'session_auto': 'false',
 }
 
 
