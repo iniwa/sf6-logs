@@ -10,6 +10,14 @@
 <div class="card" style="border: 1px solid var(--accent); background: rgba(233, 69, 96, 0.1);">
     <p style="color: var(--accent);">Auto-login failed: {{ request.args.get('detail', 'Unknown error') }}</p>
 </div>
+{% elif request.args.get('msg') == 'poll_ok' %}
+<div class="card" style="border: 1px solid var(--accent-green); background: rgba(78, 204, 163, 0.1);">
+    <p style="color: var(--accent-green);">Polling interval updated.</p>
+</div>
+{% elif request.args.get('msg') == 'poll_fail' %}
+<div class="card" style="border: 1px solid var(--accent); background: rgba(233, 69, 96, 0.1);">
+    <p style="color: var(--accent);">Invalid polling interval. Enter a number between 5 and 90.</p>
+</div>
 {% endif %}
 
 <div class="card">
@@ -67,6 +75,27 @@
         </form>
     </div>
     {% endif %}
+</div>
+
+<div class="card">
+    <h2>Polling Interval</h2>
+    <p style="margin-bottom: 12px; color: var(--text-dim); font-size: 0.9rem;">
+        CFN からバトルログを取得する間隔（秒）。設定可能範囲: <strong>5〜90 秒</strong>。
+    </p>
+    <form method="POST" action="/settings/poll_interval">
+        <div style="margin-bottom: 12px;">
+            <label for="poll_interval" style="display: block; margin-bottom: 4px; color: var(--text-dim); font-size: 0.85rem;">Interval (seconds)</label>
+            <input type="number" id="poll_interval" name="poll_interval"
+                   min="5" max="90" step="1"
+                   value="{{ config.poll_interval or '90' }}"
+                   style="max-width: 140px;">
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+    <div style="margin-top: 12px; padding: 10px 12px; border-left: 3px solid var(--accent); background: rgba(233, 69, 96, 0.08); color: var(--text-dim); font-size: 0.8rem; line-height: 1.6;">
+        <strong style="color: var(--accent);">注意:</strong> 高頻度すぎると CFN 側から WAF レート制限を食らう可能性があります。<br>
+        <strong>90 秒を推奨します。</strong>
+    </div>
 </div>
 
 <div class="card">

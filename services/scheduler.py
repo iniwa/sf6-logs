@@ -214,6 +214,13 @@ def stop_scheduler():
     c.log('Scheduler stopped')
 
 
+def update_poll_interval(seconds):
+    """ポーリング間隔を動的に変更し、次回起動時から反映"""
+    seconds = int(seconds)
+    scheduler.reschedule_job('cfn_poll', trigger='interval', seconds=seconds)
+    c.log(f'Poll interval updated: {seconds}s')
+
+
 def get_scheduler_status():
     with _status_lock:
         status = _status.copy()

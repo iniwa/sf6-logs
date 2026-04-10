@@ -1,9 +1,12 @@
 from flask import Blueprint, render_template, request, redirect, url_for
 
 import config as c
-from services import storage, cfn_auth
+from services import storage, cfn_auth, scheduler
 
 bp = Blueprint('settings', __name__)
+
+POLL_INTERVAL_MIN = 5
+POLL_INTERVAL_MAX = 90
 
 
 @bp.route('/settings')
@@ -49,6 +52,20 @@ def test_login():
         return redirect(url_for('settings.index', msg='login_ok'))
     except Exception as e:
         return redirect(url_for('settings.index', msg='login_fail', detail=str(e)))
+
+
+@bp.route('/settings/poll_interval', methods=['POST'])
+def save_poll_interval():
+    raw = request.form.get('poll_interval', '').strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return redirect(url_for('settings.index', msg='poll_fail'))
+    if value < POLL_INTERVAL_MIN or value > POLL_INTERVAL_MAX:
+        return redirect(url_for('settings.index', msg='poll_fail'))
+    storage.set_config('poll_interval', str(value))
+    scheduler.update_poll_interval(value)
+    return redirect(url_for('settings.index', msg='poll_ok'))
 
 
 @bp.route('/settings/toggle_mock', methods=['POST'])
