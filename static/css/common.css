@@ -65,7 +65,7 @@ body {
 .badge-mock { background: #f0ad4e; color: #111; }
 
 /* === Container === */
-.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+.container { max-width: 1400px; margin: 0 auto; padding: 20px; }
 
 /* === Cards === */
 .card {
