@@ -107,21 +107,22 @@
     {% endif %}
 </div>
 
-{# ── Streak Records / Activity Calendar ── #}
-<div class="summary-row" id="streak-records" style="display:none;">
-    <div class="stat-box">
-        <div class="value result-win" id="best-win-streak">-</div>
-        <div class="label">Best Win Streak</div>
+{# ── Streak Records + Activity Calendar (same row) ── #}
+<div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;align-items:stretch;">
+    <div id="streak-records" style="display:none;flex-shrink:0;flex-direction:column;gap:8px;">
+        <div class="stat-box" style="flex:1;margin:0;">
+            <div class="value result-win" id="best-win-streak">-</div>
+            <div class="label">Best Win Streak</div>
+        </div>
+        <div class="stat-box" style="flex:1;margin:0;">
+            <div class="value result-lose" id="worst-lose-streak">-</div>
+            <div class="label">Worst Lose Streak</div>
+        </div>
     </div>
-    <div class="stat-box">
-        <div class="value result-lose" id="worst-lose-streak">-</div>
-        <div class="label">Worst Lose Streak</div>
+    <div class="card" style="flex:1;min-width:0;margin-bottom:0;">
+        <h2>Activity Calendar</h2>
+        <div id="activity-calendar" style="width:100%;overflow-x:auto;"></div>
     </div>
-</div>
-
-<div class="card">
-    <h2>Activity Calendar</h2>
-    <div id="activity-calendar" style="width:100%;overflow-x:auto;"></div>
 </div>
 
 {# ── MR/LP Trend (ranked / all only) ── #}
@@ -317,7 +318,7 @@ fetchJSON('/api/stats/streaks' + apiQuery, function(data) {
     if (data.best_win_streak || data.worst_lose_streak) {
         document.getElementById('best-win-streak').textContent = data.best_win_streak || 0;
         document.getElementById('worst-lose-streak').textContent = data.worst_lose_streak || 0;
-        document.getElementById('streak-records').style.display = '';
+        document.getElementById('streak-records').style.display = 'flex';
     }
 });
 
