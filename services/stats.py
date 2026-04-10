@@ -229,10 +229,18 @@ def get_lp_mr_history(limit=50, battle_type=None, since_dt=_UNSET, last_n=None):
 
 # --- カレンダーデータ (日別サマリー) ---
 
-def get_calendar_data(days=90, battle_type=None):
-    """過去 N 日間の日別勝率データを返す"""
+def get_calendar_data(days=90, battle_type=None, year=None):
+    """日別勝率データを返す。year 指定時はその年の 1/1〜12/31 (or 今日) を返す"""
     now = c.get_now()
-    since = (now - timedelta(days=days)).replace(hour=0, minute=0, second=0, microsecond=0)
+    if year:
+        since = datetime(year, 1, 1, tzinfo=c.JST)
+        if year == now.year:
+            end = now
+        else:
+            end = datetime(year, 12, 31, tzinfo=c.JST)
+        days = (end.date() - since.date()).days + 1
+    else:
+        since = (now - timedelta(days=days)).replace(hour=0, minute=0, second=0, microsecond=0)
     matches = storage.get_matches_since(since, battle_type=battle_type)
 
     daily = defaultdict(lambda: {'wins': 0, 'losses': 0})

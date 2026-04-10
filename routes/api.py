@@ -166,9 +166,10 @@ def stats_lp_history():
 @bp.route('/stats/calendar')
 def stats_calendar():
     days = request.args.get('days', 90, type=int)
+    year = request.args.get('year', type=int)
     mode = request.args.get('mode')
     bt = mode if mode and mode != 'all' else None
-    return jsonify(stats.get_calendar_data(days=days, battle_type=bt))
+    return jsonify(stats.get_calendar_data(days=days, battle_type=bt, year=year))
 
 
 @bp.route('/stats/hourly')

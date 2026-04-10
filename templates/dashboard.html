@@ -51,23 +51,36 @@
 </div>
 {% endif %}
 
-{# ── Scheduler ── #}
-<div class="card">
-    <h2>Scheduler</h2>
-    <p>
-        Status: <strong>{{ 'Running' if status.is_running else 'Stopped' }}</strong>
-        {% if status.last_fetch %}
-         | Last fetch: {{ status.last_fetch | format_datetime }}
-        {% endif %}
-        {% if status.next_run %}
-         | Next: {{ status.next_run | format_datetime }}
-        {% endif %}
-         | Matches found: {{ status.matches_found }}
-    </p>
-    <p style="font-size: 0.85rem; color: var(--text-dim); margin-top: 4px;">
-        Cookie: {% if status.cookie_saved_at %}saved {{ status.cookie_saved_at | format_datetime }}{% else %}not set{% endif %}
-         | Auto-login: {{ 'configured' if status.auto_login_configured else 'not configured' }}
-    </p>
+{# ── Scheduler + Activity Calendar (same row) ── #}
+<div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;align-items:stretch;">
+    <div class="card" style="flex-shrink:0;margin-bottom:0;">
+        <h2>Scheduler</h2>
+        <p>
+            Status: <strong>{{ 'Running' if status.is_running else 'Stopped' }}</strong>
+            {% if status.last_fetch %}
+             | Last fetch: {{ status.last_fetch | format_datetime }}
+            {% endif %}
+            {% if status.next_run %}
+             | Next: {{ status.next_run | format_datetime }}
+            {% endif %}
+             | Matches found: {{ status.matches_found }}
+        </p>
+        <p style="font-size: 0.85rem; color: var(--text-dim); margin-top: 4px;">
+            Cookie: {% if status.cookie_saved_at %}saved {{ status.cookie_saved_at | format_datetime }}{% else %}not set{% endif %}
+             | Auto-login: {{ 'configured' if status.auto_login_configured else 'not configured' }}
+        </p>
+    </div>
+    <div class="card" style="flex:1;min-width:0;margin-bottom:0;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <h2 style="margin:0;">Activity Calendar</h2>
+            <div style="display:flex;gap:4px;align-items:center;">
+                <button class="btn btn-secondary" id="cal-prev" onclick="changeCalYear(-1)" style="font-size:0.75rem;padding:2px 8px;">&lt;</button>
+                <span id="cal-year-label" style="font-size:0.85rem;min-width:40px;text-align:center;"></span>
+                <button class="btn btn-secondary" id="cal-next" onclick="changeCalYear(1)" style="font-size:0.75rem;padding:2px 8px;">&gt;</button>
+            </div>
+        </div>
+        <div id="activity-calendar" style="width:100%;overflow-x:auto;"></div>
+    </div>
 </div>
 
 {# ── Summary ── #}
@@ -107,21 +120,15 @@
     {% endif %}
 </div>
 
-{# ── Streak Records + Activity Calendar (same row) ── #}
-<div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;align-items:stretch;">
-    <div id="streak-records" style="display:none;flex-shrink:0;flex-direction:column;gap:8px;">
-        <div class="stat-box" style="flex:1;margin:0;">
-            <div class="value result-win" id="best-win-streak">-</div>
-            <div class="label">Best Win Streak</div>
-        </div>
-        <div class="stat-box" style="flex:1;margin:0;">
-            <div class="value result-lose" id="worst-lose-streak">-</div>
-            <div class="label">Worst Lose Streak</div>
-        </div>
+{# ── Streak Records ── #}
+<div class="summary-row" id="streak-records" style="display:none;">
+    <div class="stat-box">
+        <div class="value result-win" id="best-win-streak">-</div>
+        <div class="label">Best Win Streak</div>
     </div>
-    <div class="card" style="flex:1;min-width:0;margin-bottom:0;">
-        <h2>Activity Calendar</h2>
-        <div id="activity-calendar" style="width:100%;overflow-x:auto;"></div>
+    <div class="stat-box">
+        <div class="value result-lose" id="worst-lose-streak">-</div>
+        <div class="label">Worst Lose Streak</div>
     </div>
 </div>
 
@@ -318,7 +325,7 @@ fetchJSON('/api/stats/streaks' + apiQuery, function(data) {
     if (data.best_win_streak || data.worst_lose_streak) {
         document.getElementById('best-win-streak').textContent = data.best_win_streak || 0;
         document.getElementById('worst-lose-streak').textContent = data.worst_lose_streak || 0;
-        document.getElementById('streak-records').style.display = 'flex';
+        document.getElementById('streak-records').style.display = '';
     }
 });
 
@@ -335,29 +342,70 @@ fetchJSON('/api/stats/rematches' + apiQuery, function(data) {
     }
 });
 
-// Activity Calendar (SVG heatmap)
-fetchJSON('/api/stats/calendar?days=90' + (currentMode !== 'all' ? '&mode=' + currentMode : ''), function(data) {
-    renderCalendar('activity-calendar', data);
-});
+// Activity Calendar (GitHub-style, year navigation)
+var _calYear = new Date().getFullYear();
 
-function renderCalendar(containerId, data) {
+function loadCalendar(year) {
+    _calYear = year;
+    document.getElementById('cal-year-label').textContent = year;
+    // Disable next button if current year
+    document.getElementById('cal-next').disabled = (year >= new Date().getFullYear());
+    // Calculate days for this year (Jan 1 to Dec 31, or today if current year)
+    var now = new Date();
+    var startDate = new Date(year, 0, 1);
+    var endDate = (year === now.getFullYear()) ? now : new Date(year, 11, 31);
+    var days = Math.floor((endDate - startDate) / 86400000) + 1;
+    var modeParam = currentMode !== 'all' ? '&mode=' + currentMode : '';
+    fetchJSON('/api/stats/calendar?days=' + days + '&year=' + year + modeParam, function(data) {
+        renderCalendar('activity-calendar', data, year);
+    });
+}
+
+function changeCalYear(delta) {
+    var newYear = _calYear + delta;
+    if (newYear > new Date().getFullYear()) return;
+    loadCalendar(newYear);
+}
+
+function renderCalendar(containerId, data, year) {
     var el = document.getElementById(containerId);
     if (!data || data.length === 0) { el.innerHTML = '<p style="color:var(--text-dim);padding:20px;">No data</p>'; return; }
-    var cellSize = 14, gap = 2, cols = Math.ceil(data.length / 7);
-    var W = cols * (cellSize + gap) + 40, H = 7 * (cellSize + gap) + 30;
-    var svg = '<svg width="' + W + '" height="' + H + '" style="display:block;">';
-    var days = ['Mon','','Wed','','Fri','','Sun'];
-    for (var d = 0; d < 7; d++) {
-        svg += '<text x="0" y="' + (25 + d * (cellSize + gap) + cellSize/2 + 4) + '" fill="var(--text-dim)" font-size="10">' + days[d] + '</text>';
-    }
+    var cellSize = 11, gap = 2;
     var startDate = new Date(data[0].date + 'T00:00:00');
-    var startDow = (startDate.getDay() + 6) % 7;
+    var startDow = (startDate.getDay() + 6) % 7; // Mon=0
+    var totalSlots = data.length + startDow;
+    var cols = Math.ceil(totalSlots / 7);
+    var monthLabelH = 16;
+    var W = cols * (cellSize + gap) + 40, H = 7 * (cellSize + gap) + 20 + monthLabelH;
+    var svg = '<svg width="' + W + '" height="' + H + '" style="display:block;">';
+    // Day labels
+    var days = ['M','','W','','F','','S'];
+    for (var d = 0; d < 7; d++) {
+        svg += '<text x="0" y="' + (monthLabelH + 20 + d * (cellSize + gap) + cellSize/2 + 3) + '" fill="var(--text-dim)" font-size="9">' + days[d] + '</text>';
+    }
+    // Month labels
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var lastMonth = -1;
+    for (var i = 0; i < data.length; i++) {
+        var idx = i + startDow;
+        var col = Math.floor(idx / 7);
+        var row = idx % 7;
+        if (row === 0) {
+            var m = parseInt(data[i].date.substring(5, 7)) - 1;
+            if (m !== lastMonth) {
+                var x = 35 + col * (cellSize + gap);
+                svg += '<text x="' + x + '" y="' + 10 + '" fill="var(--text-dim)" font-size="9">' + months[m] + '</text>';
+                lastMonth = m;
+            }
+        }
+    }
+    // Cells
     for (var i = 0; i < data.length; i++) {
         var idx = i + startDow;
         var col = Math.floor(idx / 7);
         var row = idx % 7;
         var x = 35 + col * (cellSize + gap);
-        var y = 20 + row * (cellSize + gap);
+        var y = monthLabelH + 15 + row * (cellSize + gap);
         var color;
         if (data[i].total === 0) {
             color = 'var(--border)';
@@ -375,6 +423,8 @@ function renderCalendar(containerId, data) {
     svg += '</svg>';
     el.innerHTML = svg;
 }
+
+loadCalendar(_calYear);
 
 // Hourly performance chart
 fetchJSON('/api/stats/hourly' + apiQuery, function(data) {
