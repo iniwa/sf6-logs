@@ -216,10 +216,11 @@
 </div>
 {% endif %}
 
-{# ── Matchup Stats (heatmap) ── #}
+{# ── Matchup Stats ── #}
 <div class="card">
     <h2>Matchup Stats</h2>
-    <div id="matchup-heatmap" style="overflow-x:auto;"></div>
+    <div id="matchup-char-selector" style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;"></div>
+    <div id="matchup-bars"></div>
 </div>
 
 {# ── Hourly Performance ── #}
@@ -415,32 +416,77 @@ function renderHourlyChart(containerId, data) {
     el.innerHTML = svg;
 }
 
-// Matchup Heatmap
+// Matchup Stats (character selector + stacked bars)
+var _matchupData = null;
+var _matchupSelected = 'all';
+
 fetchJSON('/api/stats/heatmap' + apiQuery, function(data) {
-    renderHeatmap('matchup-heatmap', data);
+    _matchupData = data;
+    buildMatchupSelector(data);
+    renderMatchupBars('all');
 });
 
-function renderHeatmap(containerId, data) {
-    var el = document.getElementById(containerId);
-    if (!data || !data.data || data.data.length === 0) { el.innerHTML = '<p style="color:var(--text-dim);padding:20px;">No data</p>'; return; }
-    var html = '<table style="font-size:0.8rem;"><thead><tr><th></th>';
-    data.opp_characters.forEach(function(c) { html += '<th style="writing-mode:vertical-rl;transform:rotate(180deg);padding:4px 2px;max-width:30px;">' + c + '</th>'; });
-    html += '</tr></thead><tbody>';
+function buildMatchupSelector(data) {
+    var sel = document.getElementById('matchup-char-selector');
+    if (!data || !data.data || data.data.length === 0) return;
+    var html = '<button class="btn btn-primary matchup-sel-btn" data-char="all" onclick="selectMatchupChar(\'all\')" style="font-size:0.8rem;padding:4px 12px;">All</button>';
     data.data.forEach(function(row) {
-        html += '<tr><td style="font-weight:600;white-space:nowrap;padding-right:8px;">' + row.my_character + '</td>';
+        html += '<button class="btn btn-secondary matchup-sel-btn" data-char="' + row.my_character + '" onclick="selectMatchupChar(\'' + row.my_character + '\')" style="font-size:0.8rem;padding:4px 12px;">' + row.my_character + '</button>';
+    });
+    sel.innerHTML = html;
+}
+
+function selectMatchupChar(char) {
+    _matchupSelected = char;
+    document.querySelectorAll('.matchup-sel-btn').forEach(function(b) {
+        b.classList.toggle('btn-primary', b.dataset.char === char);
+        b.classList.toggle('btn-secondary', b.dataset.char !== char);
+    });
+    renderMatchupBars(char);
+}
+
+function renderMatchupBars(char) {
+    var el = document.getElementById('matchup-bars');
+    var data = _matchupData;
+    if (!data || !data.data || data.data.length === 0) {
+        el.innerHTML = '<p style="color:var(--text-dim);padding:20px;">No data</p>';
+        return;
+    }
+    // Aggregate matchups
+    var agg = {};
+    data.data.forEach(function(row) {
+        if (char !== 'all' && row.my_character !== char) return;
         row.matchups.forEach(function(cell) {
-            var bg = 'transparent';
-            var txt = '';
-            if (cell.total > 0) {
-                txt = cell.winrate + '%';
-                if (cell.winrate >= 60) bg = 'rgba(78,204,163,0.4)';
-                else if (cell.winrate >= 50) bg = 'rgba(78,204,163,0.15)';
-                else if (cell.winrate >= 40) bg = 'rgba(233,69,96,0.15)';
-                else bg = 'rgba(233,69,96,0.4)';
-            }
-            html += '<td style="text-align:center;padding:4px;background:' + bg + ';min-width:40px;" title="' + row.my_character + ' vs ' + cell.opp_character + ': ' + cell.wins + 'W ' + cell.losses + 'L">' + txt + '</td>';
+            if (!agg[cell.opp_character]) agg[cell.opp_character] = {wins: 0, losses: 0};
+            agg[cell.opp_character].wins += cell.wins;
+            agg[cell.opp_character].losses += cell.losses;
         });
-        html += '</tr>';
+    });
+    // Build sorted array
+    var rows = [];
+    for (var name in agg) {
+        var w = agg[name].wins, l = agg[name].losses, t = w + l;
+        if (t > 0) rows.push({name: name, wins: w, losses: l, total: t, winrate: Math.round(w / t * 100 * 10) / 10});
+    }
+    rows.sort(function(a, b) { return b.total - a.total; });
+    if (rows.length === 0) { el.innerHTML = '<p style="color:var(--text-dim);padding:20px;">No data</p>'; return; }
+    // Render table
+    var html = '<table><thead><tr><th>Opponent</th><th style="min-width:180px;">W / L</th><th>Rate</th><th>Total</th></tr></thead><tbody>';
+    rows.forEach(function(s) {
+        var rateColor = s.winrate >= 50 ? 'color:var(--accent-green)' : 'color:#e94560';
+        html += '<tr><td>' + s.name + '</td><td>';
+        html += '<div style="display:flex;height:22px;border-radius:3px;overflow:hidden;min-width:120px;">';
+        if (s.wins > 0) {
+            html += '<div style="width:' + s.winrate + '%;background:var(--accent-green);display:flex;align-items:center;justify-content:center;min-width:24px;">';
+            html += '<span style="font-size:0.75rem;color:#fff;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,0.3);">' + s.wins + '</span></div>';
+        }
+        if (s.losses > 0) {
+            html += '<div style="width:' + (100 - s.winrate) + '%;background:#e94560;display:flex;align-items:center;justify-content:center;min-width:24px;">';
+            html += '<span style="font-size:0.75rem;color:#fff;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,0.3);">' + s.losses + '</span></div>';
+        }
+        html += '</div></td>';
+        html += '<td style="font-weight:600;' + rateColor + '">' + s.winrate + '%</td>';
+        html += '<td>' + s.total + '</td></tr>';
     });
     html += '</tbody></table>';
     el.innerHTML = html;
