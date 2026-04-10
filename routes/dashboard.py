@@ -76,8 +76,6 @@ def index():
     auth = cfn_auth.is_authenticated()
     char_stats = stats.get_character_stats(since_dt=since_dt, battle_type=bt,
                                            last_n=last_n)
-    matchup_stats = stats.get_matchup_stats(since_dt=since_dt, battle_type=bt,
-                                            last_n=last_n)
     opp_stats = stats.get_opponent_stats(since_dt=since_dt, battle_type=bt,
                                          last_n=last_n)
     lp_history = stats.get_lp_mr_history(limit=50, battle_type=bt)
@@ -89,7 +87,6 @@ def index():
                            matches=matches, today=period_stats,
                            status=status, auth=auth,
                            char_stats=char_stats,
-                           matchup_stats=matchup_stats,
                            opp_stats=opp_stats,
                            lp_history=lp_history,
                            current_mode=mode,

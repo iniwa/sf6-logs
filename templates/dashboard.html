@@ -31,6 +31,46 @@
            onchange="location.href='/?mode={{ current_mode }}&period=day&date='+this.value">
 </div>
 
+{% if status.auth_ok == false %}
+<div class="card" style="border: 1px solid var(--accent); background: rgba(233, 69, 96, 0.1);">
+    <h2 style="color: var(--accent);">⚠ Cookie Expired</h2>
+    <p style="color: var(--text-dim);">
+        CFN の Cookie が無効です。
+        {% if status.auto_login_configured %}
+            自動ログインを試行中...
+            {% if status.auto_login_last %}
+            <br><small>Last attempt: {{ status.auto_login_last }}</small>
+            {% endif %}
+        {% else %}
+            <a href="/settings" style="color: var(--accent-green);">Settings</a> で Cookie を再設定するか、CAPCOM ID で自動ログインを設定してください。
+        {% endif %}
+        {% if status.auth_checked_at %}
+        <br><small>Checked: {{ status.auth_checked_at | format_datetime }}</small>
+        {% endif %}
+    </p>
+</div>
+{% endif %}
+
+{# ── Scheduler ── #}
+<div class="card">
+    <h2>Scheduler</h2>
+    <p>
+        Status: <strong>{{ 'Running' if status.is_running else 'Stopped' }}</strong>
+        {% if status.last_fetch %}
+         | Last fetch: {{ status.last_fetch | format_datetime }}
+        {% endif %}
+        {% if status.next_run %}
+         | Next: {{ status.next_run | format_datetime }}
+        {% endif %}
+         | Matches found: {{ status.matches_found }}
+    </p>
+    <p style="font-size: 0.85rem; color: var(--text-dim); margin-top: 4px;">
+        Cookie: {% if status.cookie_saved_at %}saved {{ status.cookie_saved_at | format_datetime }}{% else %}not set{% endif %}
+         | Auto-login: {{ 'configured' if status.auto_login_configured else 'not configured' }}
+    </p>
+</div>
+
+{# ── Summary ── #}
 <div class="summary-row">
     <div class="stat-box">
         <div class="value result-win" id="wins">{{ today.wins }}</div>
@@ -44,7 +84,7 @@
         <div class="value" id="winrate">{{ today.winrate }}%</div>
         <div class="label">Win Rate</div>
     </div>
-    {% if current_mode != 'custom' %}
+    {% if current_mode in ('all', 'ranked') %}
     {% if today.is_master %}
     <div class="stat-box">
         <div class="value" id="rating">{{ today.mr if today.mr is not none else '-' }}</div>
@@ -67,6 +107,7 @@
     {% endif %}
 </div>
 
+{# ── Streak Records / Activity Calendar ── #}
 <div class="summary-row" id="streak-records" style="display:none;">
     <div class="stat-box">
         <div class="value result-win" id="best-win-streak">-</div>
@@ -78,65 +119,95 @@
     </div>
 </div>
 
-{% if status.auth_ok == false %}
-<div class="card" style="border: 1px solid var(--accent); background: rgba(233, 69, 96, 0.1);">
-    <h2 style="color: var(--accent);">⚠ Cookie Expired</h2>
-    <p style="color: var(--text-dim);">
-        CFN の Cookie が無効です。
-        {% if status.auto_login_configured %}
-            自動ログインを試行中...
-            {% if status.auto_login_last %}
-            <br><small>Last attempt: {{ status.auto_login_last }}</small>
-            {% endif %}
-        {% else %}
-            <a href="/settings" style="color: var(--accent-green);">Settings</a> で Cookie を再設定するか、CAPCOM ID で自動ログインを設定してください。
-        {% endif %}
-        {% if status.auth_checked_at %}
-        <br><small>Checked: {{ status.auth_checked_at | format_datetime }}</small>
-        {% endif %}
-    </p>
+<div class="card">
+    <h2>Activity Calendar</h2>
+    <div id="activity-calendar" style="width:100%;overflow-x:auto;"></div>
+</div>
+
+{# ── MR/LP Trend (ranked / all only) ── #}
+{% if current_mode in ('all', 'ranked') %}
+<div class="card">
+    <h2>{{ 'MR' if today.is_master else 'LP' }} Trend</h2>
+    <div id="lp-chart" style="width:100%;min-height:200px;"></div>
 </div>
 {% endif %}
 
+{# ── Match History ── #}
 <div class="card">
-    <h2>Scheduler</h2>
-    <p>
-        Status: <strong>{{ 'Running' if status.is_running else 'Stopped' }}</strong>
-        {% if status.last_fetch %}
-         | Last fetch: {{ status.last_fetch | format_datetime }}
-        {% endif %}
-        {% if status.next_run %}
-         | Next: {{ status.next_run | format_datetime }}
-        {% endif %}
-         | Matches found: {{ status.matches_found }}
-    </p>
-    <p style="font-size: 0.85rem; color: var(--text-dim); margin-top: 4px;">
-        Cookie: {% if status.cookie_saved_at %}saved {{ status.cookie_saved_at | format_datetime }}{% else %}not set{% endif %}
-         | Auto-login: {{ 'configured' if status.auto_login_configured else 'not configured' }}
-    </p>
+    <h2>Match History</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Result</th>
+                <th>My Char</th>
+                <th>vs</th>
+                <th>Opponent</th>
+                <th>Opp Rating</th>
+                {% if current_mode in ('all', 'ranked') %}<th>{{ 'MR' if today.is_master else 'LP' }}</th>{% endif %}
+                <th>Type</th>
+            </tr>
+        </thead>
+        <tbody id="match-table">
+            {% for m in matches %}
+            <tr>
+                <td>{{ m.played_at | format_datetime }}</td>
+                <td class="{{ m.result | result_class }}">{{ m.result | result_icon }}</td>
+                <td>{{ m.my_character }}</td>
+                <td>{{ m.opp_character }}</td>
+                <td>{{ m.opp_name }}</td>
+                <td>{{ m.opp_mr if m.opp_mr is not none else (m.opp_lp if m.opp_lp is not none else '-') }}</td>
+                {% if current_mode in ('all', 'ranked') %}
+                {% set after = m.mr_after if m.mr_after is not none else m.lp_after %}
+                {% set before = m.mr_before if m.mr_after is not none else m.lp_before %}
+                <td class="{{ 'result-win' if after and before and after > before else 'result-lose' if after and before and after < before else '' }}">
+                    {{ m | lp_change }}
+                </td>
+                {% endif %}
+                <td>{{ m.battle_type }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
+{# ── Rolling Win Rate ── #}
+<div class="card">
+    <h2>Rolling Win Rate</h2>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button class="btn btn-secondary rolling-btn" data-window="10" onclick="loadRolling(10)" style="font-size:0.8rem;padding:4px 12px;">Last 10</button>
+        <button class="btn btn-secondary rolling-btn" data-window="20" onclick="loadRolling(20)" style="font-size:0.8rem;padding:4px 12px;">Last 20</button>
+    </div>
+    <div id="rolling-chart" style="width:100%;min-height:200px;"></div>
+</div>
+
+{# ── Character Win Rates (stacked bar) ── #}
 {% if char_stats %}
 <div class="card">
     <h2>Character Win Rates</h2>
     <table>
         <thead>
-            <tr><th>Character</th><th>W</th><th>L</th><th>Win Rate</th><th>Total</th></tr>
+            <tr><th>Character</th><th style="min-width:180px;">W / L</th><th>Rate</th><th>Total</th></tr>
         </thead>
         <tbody>
             {% for s in char_stats %}
             <tr>
                 <td>{{ s.name }}</td>
-                <td class="result-win">{{ s.wins }}</td>
-                <td class="result-lose">{{ s.losses }}</td>
                 <td>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
-                            <div style="width:{{ s.winrate }}%;height:100%;background:var(--accent-green);"></div>
+                    <div style="display:flex;height:22px;border-radius:3px;overflow:hidden;min-width:120px;">
+                        {% if s.wins > 0 %}
+                        <div style="width:{{ s.winrate }}%;background:var(--accent-green);display:flex;align-items:center;justify-content:center;min-width:24px;">
+                            <span style="font-size:0.75rem;color:#fff;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,0.3);">{{ s.wins }}</span>
                         </div>
-                        <span style="min-width:48px;text-align:right;">{{ s.winrate }}%</span>
+                        {% endif %}
+                        {% if s.losses > 0 %}
+                        <div style="width:{{ 100 - s.winrate }}%;background:#e94560;display:flex;align-items:center;justify-content:center;min-width:24px;">
+                            <span style="font-size:0.75rem;color:#fff;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,0.3);">{{ s.losses }}</span>
+                        </div>
+                        {% endif %}
                     </div>
                 </td>
+                <td style="font-weight:600;{{ 'color:var(--accent-green)' if s.winrate >= 50 else 'color:#e94560' }}">{{ s.winrate }}%</td>
                 <td>{{ s.total }}</td>
             </tr>
             {% endfor %}
@@ -145,40 +216,19 @@
 </div>
 {% endif %}
 
-{% if matchup_stats %}
+{# ── Matchup Stats (heatmap) ── #}
 <div class="card">
     <h2>Matchup Stats</h2>
-    <table>
-        <thead>
-            <tr><th>Opponent Char</th><th>W</th><th>L</th><th>Win Rate</th><th>Total</th></tr>
-        </thead>
-        <tbody>
-            {% for s in matchup_stats %}
-            <tr>
-                <td>{{ s.name }}</td>
-                <td class="result-win">{{ s.wins }}</td>
-                <td class="result-lose">{{ s.losses }}</td>
-                <td>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
-                            <div style="width:{{ s.winrate }}%;height:100%;background:var(--accent-green);"></div>
-                        </div>
-                        <span style="min-width:48px;text-align:right;">{{ s.winrate }}%</span>
-                    </div>
-                </td>
-                <td>{{ s.total }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-{% endif %}
-
-<div class="card">
-    <h2>Character Matchup Heatmap</h2>
     <div id="matchup-heatmap" style="overflow-x:auto;"></div>
 </div>
 
+{# ── Hourly Performance ── #}
+<div class="card">
+    <h2>Hourly Performance</h2>
+    <div id="hourly-chart" style="width:100%;min-height:200px;"></div>
+</div>
+
+{# ── Opponent Stats ── #}
 {% if opp_stats %}
 <div class="card">
     <h2 onclick="this.parentElement.querySelector('table').classList.toggle('collapsed')" style="cursor:pointer;">
@@ -203,69 +253,10 @@
 </div>
 {% endif %}
 
-<div class="card">
-    <h2>Activity Calendar</h2>
-    <div id="activity-calendar" style="width:100%;overflow-x:auto;"></div>
-</div>
-
-<div class="card">
-    <h2>Hourly Performance</h2>
-    <div id="hourly-chart" style="width:100%;min-height:200px;"></div>
-</div>
-
-<div class="card">
-    <h2>{% if current_mode != 'custom' %}{{ 'MR' if today.is_master else 'LP' }} Trend{% else %}Match Trend{% endif %}</h2>
-    <div id="lp-chart" style="width:100%;min-height:200px;"></div>
-</div>
-
-<div class="card">
-    <h2>Rolling Win Rate</h2>
-    <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <button class="btn btn-secondary rolling-btn" data-window="10" onclick="loadRolling(10)" style="font-size:0.8rem;padding:4px 12px;">Last 10</button>
-        <button class="btn btn-secondary rolling-btn" data-window="20" onclick="loadRolling(20)" style="font-size:0.8rem;padding:4px 12px;">Last 20</button>
-    </div>
-    <div id="rolling-chart" style="width:100%;min-height:200px;"></div>
-</div>
-
+{# ── Rematches ── #}
 <div id="rematches-section" class="card" style="display:none;">
     <h2>Rematches</h2>
     <div id="rematches-list"></div>
-</div>
-
-<div class="card">
-    <h2>Match History</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Time</th>
-                <th>Result</th>
-                <th>My Char</th>
-                <th>vs</th>
-                <th>Opponent</th>
-                <th>Opp Rating</th>
-                <th>{{ 'MR' if today.is_master else 'LP' }}</th>
-                <th>Type</th>
-            </tr>
-        </thead>
-        <tbody id="match-table">
-            {% for m in matches %}
-            <tr>
-                <td>{{ m.played_at | format_datetime }}</td>
-                <td class="{{ m.result | result_class }}">{{ m.result | result_icon }}</td>
-                <td>{{ m.my_character }}</td>
-                <td>{{ m.opp_character }}</td>
-                <td>{{ m.opp_name }}</td>
-                <td>{{ m.opp_mr if m.opp_mr is not none else (m.opp_lp if m.opp_lp is not none else '-') }}</td>
-                {% set after = m.mr_after if m.mr_after is not none else m.lp_after %}
-                {% set before = m.mr_before if m.mr_after is not none else m.lp_before %}
-                <td class="{{ 'result-win' if after and before and after > before else 'result-lose' if after and before and after < before else '' }}">
-                    {{ m | lp_change }}
-                </td>
-                <td>{{ m.battle_type }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
 </div>
 {% endblock %}
 
@@ -291,30 +282,34 @@ function refreshStats() {
         document.getElementById('wins').textContent = data.wins;
         document.getElementById('losses').textContent = data.losses;
         document.getElementById('winrate').textContent = data.winrate + '%';
-        var ratingEl = document.getElementById('rating');
-        var labelEl = document.getElementById('rating-label');
-        var deltaEl = document.getElementById('rating-delta');
-        if (data.is_master) {
-            if (ratingEl) ratingEl.textContent = data.mr !== null ? data.mr : '-';
-            if (labelEl) labelEl.textContent = 'MR';
-            if (deltaEl) deltaEl.innerHTML = formatDelta(data.mr_delta);
-        } else {
-            if (ratingEl) ratingEl.textContent = data.lp !== null ? data.lp : '-';
-            if (labelEl) labelEl.textContent = 'LP';
-            if (deltaEl) deltaEl.innerHTML = formatDelta(data.lp_delta);
+        if (currentMode === 'all' || currentMode === 'ranked') {
+            var ratingEl = document.getElementById('rating');
+            var labelEl = document.getElementById('rating-label');
+            var deltaEl = document.getElementById('rating-delta');
+            if (data.is_master) {
+                if (ratingEl) ratingEl.textContent = data.mr !== null ? data.mr : '-';
+                if (labelEl) labelEl.textContent = 'MR';
+                if (deltaEl) deltaEl.innerHTML = formatDelta(data.mr_delta);
+            } else {
+                if (ratingEl) ratingEl.textContent = data.lp !== null ? data.lp : '-';
+                if (labelEl) labelEl.textContent = 'LP';
+                if (deltaEl) deltaEl.innerHTML = formatDelta(data.lp_delta);
+            }
         }
     });
 }
 setInterval(refreshStats, 10000);
 
-// LP/MR chart
-var lpParams = 'limit=50';
-if (currentMode !== 'all') lpParams += '&mode=' + currentMode;
-if (currentPeriod) lpParams += '&period=' + currentPeriod;
-if (currentPeriod === 'day' && selectedDate) lpParams += '&date=' + selectedDate;
-fetchJSON('/api/stats/lp-history?' + lpParams, function(data) {
-    renderLpChart('lp-chart', data);
-});
+// LP/MR chart (ranked / all only)
+if (currentMode === 'all' || currentMode === 'ranked') {
+    var lpParams = 'limit=50';
+    if (currentMode !== 'all') lpParams += '&mode=' + currentMode;
+    if (currentPeriod) lpParams += '&period=' + currentPeriod;
+    if (currentPeriod === 'day' && selectedDate) lpParams += '&date=' + selectedDate;
+    fetchJSON('/api/stats/lp-history?' + lpParams, function(data) {
+        renderLpChart('lp-chart', data);
+    });
+}
 
 // Streak records
 fetchJSON('/api/stats/streaks' + apiQuery, function(data) {
