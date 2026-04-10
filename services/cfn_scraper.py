@@ -19,10 +19,11 @@ CHARACTERS = [
 BATTLE_TYPES = ['ranked', 'casual']
 
 # replay_battle_type マッピング
+# 実データより: 1=Ranked Match, 2=Casual Match, 4=Custom Room
+# 3 はバトルハブと推定（未確認。未マッチ時は name フィールドでフォールバック判定）
 BATTLE_TYPE_MAP = {
-    0: 'casual',
     1: 'ranked',
-    2: 'battle_hub',
+    2: 'casual',
     3: 'battle_hub',
     4: 'custom',
 }
@@ -168,6 +169,8 @@ def _parse_replay(replay, my_short_id):
             battle_type = 'ranked'
         elif 'casual' in name:
             battle_type = 'casual'
+        elif 'hub' in name:
+            battle_type = 'battle_hub'
         elif 'custom' in name:
             battle_type = 'custom'
         else:
