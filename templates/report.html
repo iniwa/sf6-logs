@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Report — SF6 Stats{% endblock %}
+{% block content %}
+<style>
+  .report-filters { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+  .report-filters .filter-group { display:flex; gap:4px; }
+  .filter-btn {
+    padding:4px 12px; border-radius:4px; font-size:0.8rem; cursor:pointer;
+    background:var(--bg); border:1px solid var(--border); color:var(--text-dim);
+    text-decoration:none; transition:background 0.2s;
+  }
+  .filter-btn:hover { background:var(--bg-hover); color:var(--text); }
+  .filter-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .report-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  @media(max-width:768px){ .report-grid { grid-template-columns:1fr; } }
+  .daily-bar { display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:0.8rem; }
+  .daily-bar .date-label { width:80px; text-align:right; color:var(--text-dim); }
+  .daily-bar .bar-track { flex:1; height:18px; background:var(--bg); border-radius:3px; position:relative; overflow:hidden; display:flex; }
+  .daily-bar .bar-win { background:var(--accent-green); height:100%; }
+  .daily-bar .bar-lose { background:var(--accent-red); height:100%; }
+  .daily-bar .bar-label { font-size:0.7rem; color:var(--text-dim); width:60px; }
+  .stacked-bar { display:flex; height:22px; border-radius:3px; overflow:hidden; background:var(--bg); }
+  .stacked-bar .seg-win { background:var(--accent-green); display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:700; color:#111; }
+  .stacked-bar .seg-lose { background:var(--accent-red); display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:700; color:#fff; }
+  .delta-positive { color:var(--accent-green); }
+  .delta-negative { color:var(--accent-red); }
+  .highlight-card { text-align:center; padding:12px; }
+  .highlight-card .big-num { font-size:2rem; font-weight:700; }
+  .highlight-card .sub { font-size:0.8rem; color:var(--text-dim); margin-top:4px; }
+</style>
+
+<!-- Filters -->
+<div class="report-filters">
+  <div class="filter-group">
+    <a href="?range=weekly&mode={{ current_mode }}" class="filter-btn {{ 'active' if current_range == 'weekly' }}">Weekly</a>
+    <a href="?range=monthly&mode={{ current_mode }}" class="filter-btn {{ 'active' if current_range == 'monthly' }}">Monthly</a>
+  </div>
+  <div class="filter-group">
+    {% for val, label in battle_modes %}
+    <a href="?range={{ current_range }}&mode={{ val }}" class="filter-btn {{ 'active' if current_mode == val }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+{% if data.total == 0 %}
+<div class="card"><p style="text-align:center;color:var(--text-dim);padding:40px 0;">{{ data.period }} のデータがありません</p></div>
+{% else %}
+
+<!-- Summary -->
+<h2 style="font-size:1.1rem;margin-bottom:12px;color:var(--text-dim);">{{ data.period }} REPORT</h2>
+
+<div class="summary-row">
+  <div class="stat-box">
+    <div class="value">{{ data.total }}</div>
+    <div class="label">Total Games</div>
+  </div>
+  <div class="stat-box">
+    <div class="value result-win">{{ data.wins }}</div>
+    <div class="label">Wins</div>
+  </div>
+  <div class="stat-box">
+    <div class="value result-lose">{{ data.losses }}</div>
+    <div class="label">Losses</div>
+  </div>
+  <div class="stat-box">
+    <div class="value" style="color:{{ 'var(--accent-green)' if data.winrate >= 50 else 'var(--accent-red)' }}">{{ data.winrate }}%</div>
+    <div class="label">Win Rate</div>
+  </div>
+  {% if data.mr_delta is not none %}
+  <div class="stat-box">
+    <div class="value {{ 'delta-positive' if data.mr_delta >= 0 else 'delta-negative' }}">{{ '%+d' % data.mr_delta }}</div>
+    <div class="label">MR Change</div>
+  </div>
+  {% elif data.lp_delta is not none %}
+  <div class="stat-box">
+    <div class="value {{ 'delta-positive' if data.lp_delta >= 0 else 'delta-negative' }}">{{ '%+d' % data.lp_delta }}</div>
+    <div class="label">LP Change</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Highlights -->
+<div class="summary-row">
+  <div class="stat-box highlight-card">
+    <div class="big-num result-win">{{ data.best_win_streak }}</div>
+    <div class="sub">Best Win Streak</div>
+  </div>
+  <div class="stat-box highlight-card">
+    <div class="big-num result-lose">{{ data.worst_lose_streak }}</div>
+    <div class="sub">Worst Lose Streak</div>
+  </div>
+  {% if data.best_day %}
+  <div class="stat-box highlight-card">
+    <div class="big-num">{{ data.best_day.total }}</div>
+    <div class="sub">Most Games Day<br><span style="font-size:0.75rem;">{{ data.best_day.date }}</span></div>
+  </div>
+  {% endif %}
+  {% if data.best_winrate_day %}
+  <div class="stat-box highlight-card">
+    <div class="big-num" style="color:var(--accent-green)">{{ data.best_winrate_day.winrate }}%</div>
+    <div class="sub">Best WR Day (5+)<br><span style="font-size:0.75rem;">{{ data.best_winrate_day.date }} ({{ data.best_winrate_day.total }}G)</span></div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="report-grid">
+  <!-- Daily Breakdown -->
+  <div class="card">
+    <h2>Daily Breakdown</h2>
+    {% for d in data.daily %}
+    {% set max_total = data.daily | map(attribute='total') | max %}
+    <div class="daily-bar">
+      <span class="date-label">{{ d.date[5:] }}</span>
+      <div class="bar-track">
+        {% if max_total > 0 %}
+        <div class="bar-win" style="width:{{ (d.wins / max_total * 100)|round(1) }}%"></div>
+        <div class="bar-lose" style="width:{{ (d.losses / max_total * 100)|round(1) }}%"></div>
+        {% endif %}
+      </div>
+      <span class="bar-label">{{ d.wins }}W {{ d.losses }}L</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Character Stats -->
+  <div class="card">
+    <h2>Character Stats</h2>
+    <table>
+      <thead><tr><th>Character</th><th>W</th><th>L</th><th>WR%</th><th>Win Rate</th></tr></thead>
+      <tbody>
+      {% for ch in data.characters | sort(attribute='total', reverse=true) %}
+      <tr>
+        <td>{{ ch.name }}</td>
+        <td class="result-win">{{ ch.wins }}</td>
+        <td class="result-lose">{{ ch.losses }}</td>
+        <td>{{ ch.winrate }}%</td>
+        <td style="width:40%">
+          <div class="stacked-bar">
+            {% if ch.total > 0 %}
+            <div class="seg-win" style="width:{{ ch.winrate }}%">{% if ch.wins > 0 %}{{ ch.wins }}{% endif %}</div>
+            <div class="seg-lose" style="width:{{ 100 - ch.winrate }}%">{% if ch.losses > 0 %}{{ ch.losses }}{% endif %}</div>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Opponent Character Stats -->
+<div class="card">
+  <h2>Opponent Character Stats</h2>
+  <table>
+    <thead><tr><th>Character</th><th>W</th><th>L</th><th>Total</th><th>WR%</th><th>Win Rate</th></tr></thead>
+    <tbody>
+    {% for opp in data.opponents | sort(attribute='total', reverse=true) %}
+    {% if opp.total > 0 %}
+    <tr>
+      <td>{{ opp.name }}</td>
+      <td class="result-win">{{ opp.wins }}</td>
+      <td class="result-lose">{{ opp.losses }}</td>
+      <td>{{ opp.total }}</td>
+      <td>{{ opp.winrate }}%</td>
+      <td style="width:35%">
+        <div class="stacked-bar">
+          <div class="seg-win" style="width:{{ opp.winrate }}%">{% if opp.wins > 0 %}{{ opp.wins }}{% endif %}</div>
+          <div class="seg-lose" style="width:{{ 100 - opp.winrate }}%">{% if opp.losses > 0 %}{{ opp.losses }}{% endif %}</div>
+        </div>
+      </td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endif %}
+{% endblock %}

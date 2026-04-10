@@ -230,6 +230,29 @@ def stats_highlight():
     return jsonify(stats.get_highlight_stats(battle_type=bt))
 
 
+@bp.route('/stats/day-hour')
+def stats_day_hour():
+    mode = request.args.get('mode')
+    bt = mode if mode and mode != 'all' else None
+    char = request.args.get('char')
+    return jsonify(stats.get_day_hour_stats(battle_type=bt, my_character=char))
+
+
+@bp.route('/stats/fatigue')
+def stats_fatigue():
+    mode = request.args.get('mode')
+    bt = mode if mode and mode != 'all' else None
+    char = request.args.get('char')
+    return jsonify(stats.get_session_fatigue(battle_type=bt, my_character=char))
+
+
+@bp.route('/stats/records')
+def stats_records():
+    mode = request.args.get('mode')
+    bt = mode if mode and mode != 'all' else None
+    return jsonify(stats.get_personal_records(battle_type=bt))
+
+
 @bp.route('/sessions')
 def sessions_list():
     sessions = storage.get_all_sessions(limit=50)

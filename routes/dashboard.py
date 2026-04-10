@@ -35,12 +35,10 @@ def _parse_period():
     if period == 'all':
         return period, None, None, None
 
-    # lastN パターン (last20, last100, last200, カスタム last50 等)
     m = re.match(r'^last(\d+)$', period)
     if m:
         return period, None, None, int(m.group(1))
 
-    # 日付指定
     if period == 'day':
         date_str = request.args.get('date')
         if date_str:
@@ -55,33 +53,44 @@ def _parse_period():
         since = now.replace(hour=0, minute=0, second=0, microsecond=0)
         return period, since, now.strftime('%Y-%m-%d'), None
 
-    # 不明な値はデフォルト (直近20戦)
     return 'last20', None, None, 20
+
+
+def _get_available_chars(battle_type=None):
+    """使用キャラ一覧を取得"""
+    char_stats = stats.get_character_stats(since_dt=None, battle_type=battle_type)
+    return [s['name'] for s in char_stats]
 
 
 @bp.route('/')
 def index():
     mode = request.args.get('mode', 'all')
     bt = mode if mode != 'all' else None
+    selected_char = request.args.get('char') or None
 
     period, since_dt, selected_date, last_n = _parse_period()
 
     period_stats = stats.get_today_stats(battle_type=bt, since_dt=since_dt,
-                                         last_n=last_n)
+                                         last_n=last_n, my_character=selected_char)
     if last_n:
         matches = storage.get_matches(limit=last_n, battle_type=bt)
     else:
         matches = storage.get_matches_since(since_dt, battle_type=bt, limit=100)
+    if selected_char:
+        matches = [m for m in matches if m['my_character'] == selected_char]
+
     status = sched.get_scheduler_status()
     auth = cfn_auth.is_authenticated()
     char_stats = stats.get_character_stats(since_dt=since_dt, battle_type=bt,
                                            last_n=last_n)
     opp_stats = stats.get_opponent_stats(since_dt=since_dt, battle_type=bt,
                                          last_n=last_n)
+    if selected_char:
+        opp_stats = []  # キャラフィルター時は matchup stats でカバー
     lp_history = stats.get_lp_mr_history(limit=50, battle_type=bt)
 
-    # カスタム入力欄に表示する値 (プリセット以外の lastN のみ)
     custom_last_n = last_n if period not in _PRESET_PERIODS and last_n else None
+    available_chars = _get_available_chars(battle_type=bt)
 
     return render_template('dashboard.html',
                            matches=matches, today=period_stats,
@@ -94,4 +103,6 @@ def index():
                            current_period=period,
                            period_choices=PERIOD_CHOICES,
                            selected_date=selected_date,
-                           custom_last_n=custom_last_n)
+                           custom_last_n=custom_last_n,
+                           selected_char=selected_char,
+                           available_chars=available_chars)

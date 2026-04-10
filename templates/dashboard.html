@@ -4,23 +4,23 @@
 {% block content %}
 <div class="mode-tabs" style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
     {% for value, label in battle_modes %}
-    <a href="/?mode={{ value }}&period={{ current_period }}{% if selected_date %}&date={{ selected_date }}{% endif %}"
+    <a href="/?mode={{ value }}&period={{ current_period }}{% if selected_date %}&date={{ selected_date }}{% endif %}{% if selected_char %}&char={{ selected_char }}{% endif %}"
        class="btn {{ 'btn-primary' if current_mode == value else 'btn-secondary' }}"
        style="text-decoration:none;font-size:0.85rem;padding:6px 14px;">
         {{ label }}
     </a>
     {% endfor %}
 </div>
-<div class="period-tabs" style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+<div class="period-tabs" style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
     {% for value, label in period_choices %}
-    <a href="/?mode={{ current_mode }}&period={{ value }}"
+    <a href="/?mode={{ current_mode }}&period={{ value }}{% if selected_char %}&char={{ selected_char }}{% endif %}"
        class="btn {{ 'btn-primary' if current_period == value else 'btn-secondary' }}"
        style="text-decoration:none;font-size:0.8rem;padding:4px 12px;">
         {{ label }}
     </a>
     {% endfor %}
     <form style="display:inline-flex;align-items:center;gap:2px;margin:0;"
-          onsubmit="location.href='/?mode={{ current_mode }}&period=last'+this.n.value;return false;">
+          onsubmit="location.href='/?mode={{ current_mode }}&period=last'+this.n.value+'{{ '&char='+selected_char if selected_char else '' }}';return false;">
         <input type="number" name="n" min="1" max="9999"
                value="{{ custom_last_n or '' }}" placeholder="50"
                style="width:60px;font-size:0.8rem;padding:4px 6px;background:var(--bg-card,#1e1e2e);color:var(--text,#eee);border:1px solid {{ 'var(--accent-green)' if custom_last_n else 'var(--border,#333)' }};border-radius:4px;">
@@ -28,8 +28,23 @@
     </form>
     <input type="date" value="{{ selected_date or '' }}"
            style="font-size:0.8rem;padding:4px 8px;background:var(--bg-card,#1e1e2e);color:var(--text,#eee);border:1px solid {{ 'var(--accent-green)' if current_period == 'day' else 'var(--border,#333)' }};border-radius:4px;"
-           onchange="location.href='/?mode={{ current_mode }}&period=day&date='+this.value">
+           onchange="location.href='/?mode={{ current_mode }}&period=day&date='+this.value+'{{ '&char='+selected_char if selected_char else '' }}'">
 </div>
+
+{# ── Character Filter ── #}
+{% if available_chars and available_chars|length > 1 %}
+<div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+    <span style="font-size:0.8rem;color:var(--text-dim);margin-right:4px;">Char:</span>
+    <a href="/?mode={{ current_mode }}&period={{ current_period }}{% if selected_date %}&date={{ selected_date }}{% endif %}"
+       class="btn {{ 'btn-primary' if not selected_char else 'btn-secondary' }}"
+       style="text-decoration:none;font-size:0.75rem;padding:3px 10px;">All</a>
+    {% for ch in available_chars %}
+    <a href="/?mode={{ current_mode }}&period={{ current_period }}{% if selected_date %}&date={{ selected_date }}{% endif %}&char={{ ch }}"
+       class="btn {{ 'btn-primary' if selected_char == ch else 'btn-secondary' }}"
+       style="text-decoration:none;font-size:0.75rem;padding:3px 10px;">{{ ch }}</a>
+    {% endfor %}
+</div>
+{% endif %}
 
 {% if status.auth_ok == false %}
 <div class="card" style="border: 1px solid var(--accent); background: rgba(233, 69, 96, 0.1);">
@@ -51,7 +66,7 @@
 </div>
 {% endif %}
 
-{# ── Scheduler + Activity Calendar (same row) ── #}
+{# ── Scheduler + Activity Calendar ── #}
 <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;align-items:stretch;">
     <div class="card" style="flex-shrink:0;margin-bottom:0;">
         <h2>Scheduler</h2>
@@ -78,6 +93,15 @@
                 <span id="cal-year-label" style="font-size:0.85rem;min-width:40px;text-align:center;"></span>
                 <button class="btn btn-secondary" id="cal-next" onclick="changeCalYear(1)" style="font-size:0.75rem;padding:2px 8px;">&gt;</button>
             </div>
+            <div id="cal-legend" style="display:flex;gap:3px;align-items:center;margin-left:auto;font-size:0.7rem;color:var(--text-dim);">
+                Lose
+                <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e94560;opacity:0.9;"></span>
+                <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e67e22;opacity:0.9;"></span>
+                <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f39c12;opacity:0.9;"></span>
+                <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#4ecca3;opacity:0.9;"></span>
+                <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#27ae60;opacity:0.9;"></span>
+                Win
+            </div>
         </div>
         <div id="activity-calendar" style="width:100%;overflow-x:auto;"></div>
     </div>
@@ -92,6 +116,10 @@
     <div class="stat-box">
         <div class="value result-lose" id="losses">{{ today.losses }}</div>
         <div class="label">Losses</div>
+    </div>
+    <div class="stat-box">
+        <div class="value" id="total-games">{{ today.total }}</div>
+        <div class="label">Total</div>
     </div>
     <div class="stat-box">
         <div class="value" id="winrate">{{ today.winrate }}%</div>
@@ -132,7 +160,13 @@
     </div>
 </div>
 
-{# ── MR/LP Trend (ranked / all only) ── #}
+{# ── Personal Records ── #}
+<div id="records-section" class="card" style="display:none;">
+    <h2>Personal Records</h2>
+    <div id="records-content" class="summary-row" style="margin-bottom:0;"></div>
+</div>
+
+{# ── MR/LP Trend ── #}
 {% if current_mode in ('all', 'ranked') %}
 <div class="card">
     <h2>{{ 'MR' if today.is_master else 'LP' }} Trend</h2>
@@ -189,17 +223,22 @@
     <div id="rolling-chart" style="width:100%;min-height:200px;"></div>
 </div>
 
-{# ── Character Win Rates (stacked bar) ── #}
+{# ── Character Win Rates ── #}
 {% if char_stats %}
 <div class="card">
     <h2>Character Win Rates</h2>
-    <table>
+    <table id="char-stats-table">
         <thead>
-            <tr><th>Character</th><th style="min-width:180px;">W / L</th><th>Rate</th><th>Total</th></tr>
+            <tr>
+                <th class="sortable" data-sort="name" data-table="char-stats-table">Character</th>
+                <th style="min-width:180px;">W / L</th>
+                <th class="sortable" data-sort="winrate" data-table="char-stats-table">Rate</th>
+                <th class="sortable" data-sort="total" data-table="char-stats-table">Total</th>
+            </tr>
         </thead>
         <tbody>
             {% for s in char_stats %}
-            <tr>
+            <tr data-name="{{ s.name }}" data-winrate="{{ s.winrate }}" data-total="{{ s.total }}">
                 <td>{{ s.name }}</td>
                 <td>
                     <div style="display:flex;height:22px;border-radius:3px;overflow:hidden;min-width:120px;">
@@ -209,13 +248,13 @@
                         </div>
                         {% endif %}
                         {% if s.losses > 0 %}
-                        <div style="width:{{ 100 - s.winrate }}%;background:#e94560;display:flex;align-items:center;justify-content:center;min-width:24px;">
+                        <div style="width:{{ 100 - s.winrate }}%;background:var(--accent-red);display:flex;align-items:center;justify-content:center;min-width:24px;">
                             <span style="font-size:0.75rem;color:#fff;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,0.3);">{{ s.losses }}</span>
                         </div>
                         {% endif %}
                     </div>
                 </td>
-                <td style="font-weight:600;{{ 'color:var(--accent-green)' if s.winrate >= 50 else 'color:#e94560' }}">{{ s.winrate }}%</td>
+                <td style="font-weight:600;{{ 'color:var(--accent-green)' if s.winrate >= 50 else 'color:var(--accent-red)' }}">{{ s.winrate }}%</td>
                 <td>{{ s.total }}</td>
             </tr>
             {% endfor %}
@@ -229,6 +268,18 @@
     <h2>Matchup Stats</h2>
     <div id="matchup-char-selector" style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;"></div>
     <div id="matchup-bars"></div>
+</div>
+
+{# ── Day x Hour Heatmap ── #}
+<div class="card">
+    <h2>Day x Hour Performance</h2>
+    <div id="day-hour-heatmap" style="overflow-x:auto;"></div>
+</div>
+
+{# ── Session Fatigue ── #}
+<div class="card">
+    <h2>Session Fatigue</h2>
+    <div id="fatigue-chart" style="width:100%;min-height:200px;"></div>
 </div>
 
 {# ── Hourly Performance ── #}
@@ -281,15 +332,20 @@ function formatDelta(val) {
 var currentMode = '{{ current_mode }}';
 var currentPeriod = '{{ current_period }}';
 var selectedDate = '{{ selected_date or '' }}';
+var selectedChar = '{{ selected_char or '' }}';
 var apiParams = [];
 if (currentMode !== 'all') apiParams.push('mode=' + currentMode);
 if (currentPeriod) apiParams.push('period=' + currentPeriod);
 if (currentPeriod === 'day' && selectedDate) apiParams.push('date=' + selectedDate);
+if (selectedChar) apiParams.push('char=' + selectedChar);
 var apiQuery = apiParams.length ? '?' + apiParams.join('&') : '';
+var charParam = selectedChar ? '&char=' + selectedChar : '';
+
 function refreshStats() {
     fetchJSON('/api/stats/today' + apiQuery, function(data) {
         document.getElementById('wins').textContent = data.wins;
         document.getElementById('losses').textContent = data.losses;
+        document.getElementById('total-games').textContent = data.total;
         document.getElementById('winrate').textContent = data.winrate + '%';
         if (currentMode === 'all' || currentMode === 'ranked') {
             var ratingEl = document.getElementById('rating');
@@ -329,6 +385,24 @@ fetchJSON('/api/stats/streaks' + apiQuery, function(data) {
     }
 });
 
+// Personal Records
+fetchJSON('/api/stats/records' + (currentMode !== 'all' ? '?mode=' + currentMode : ''), function(data) {
+    if (!data || !data.total_matches) return;
+    var el = document.getElementById('records-content');
+    var html = '';
+    function box(val, label) { return '<div class="stat-box" style="padding:12px 16px;"><div class="value" style="font-size:1.2rem;">' + val + '</div><div class="label">' + label + '</div></div>'; }
+    html += box(data.total_matches, 'Total Matches');
+    html += box(data.total_winrate + '%', 'All-time WR');
+    if (data.best_mr) html += box(data.best_mr, 'Best MR');
+    html += box(data.best_win_streak, 'Best Win Streak');
+    html += box(data.worst_lose_streak, 'Worst Lose Streak');
+    if (data.best_day_wins) html += box(data.best_day_wins.wins + 'W (' + data.best_day_wins.date + ')', 'Most Wins/Day');
+    if (data.most_games_day) html += box(data.most_games_day.total + ' (' + data.most_games_day.date + ')', 'Most Games/Day');
+    if (data.best_day_winrate) html += box(data.best_day_winrate.winrate + '% (' + data.best_day_winrate.date + ')', 'Best Day WR (5+)');
+    el.innerHTML = html;
+    document.getElementById('records-section').style.display = '';
+});
+
 // Rematches
 fetchJSON('/api/stats/rematches' + apiQuery, function(data) {
     if (data.length > 0) {
@@ -342,48 +416,41 @@ fetchJSON('/api/stats/rematches' + apiQuery, function(data) {
     }
 });
 
-// Activity Calendar (GitHub-style, year navigation)
+// Activity Calendar
 var _calYear = new Date().getFullYear();
-
 function loadCalendar(year) {
     _calYear = year;
     document.getElementById('cal-year-label').textContent = year;
-    // Disable next button if current year
     document.getElementById('cal-next').disabled = (year >= new Date().getFullYear());
-    // Calculate days for this year (Jan 1 to Dec 31, or today if current year)
     var now = new Date();
     var startDate = new Date(year, 0, 1);
     var endDate = (year === now.getFullYear()) ? now : new Date(year, 11, 31);
     var days = Math.floor((endDate - startDate) / 86400000) + 1;
     var modeParam = currentMode !== 'all' ? '&mode=' + currentMode : '';
     fetchJSON('/api/stats/calendar?days=' + days + '&year=' + year + modeParam, function(data) {
-        renderCalendar('activity-calendar', data, year);
+        renderCalendar('activity-calendar', data);
     });
 }
-
 function changeCalYear(delta) {
     var newYear = _calYear + delta;
     if (newYear > new Date().getFullYear()) return;
     loadCalendar(newYear);
 }
-
-function renderCalendar(containerId, data, year) {
+function renderCalendar(containerId, data) {
     var el = document.getElementById(containerId);
     if (!data || data.length === 0) { el.innerHTML = '<p style="color:var(--text-dim);padding:20px;">No data</p>'; return; }
     var cellSize = 11, gap = 2;
     var startDate = new Date(data[0].date + 'T00:00:00');
-    var startDow = (startDate.getDay() + 6) % 7; // Mon=0
+    var startDow = (startDate.getDay() + 6) % 7;
     var totalSlots = data.length + startDow;
     var cols = Math.ceil(totalSlots / 7);
     var monthLabelH = 16;
     var W = cols * (cellSize + gap) + 40, H = 7 * (cellSize + gap) + 20 + monthLabelH;
     var svg = '<svg width="' + W + '" height="' + H + '" style="display:block;">';
-    // Day labels
-    var days = ['M','','W','','F','','S'];
+    var dayLabels = ['M','','W','','F','','S'];
     for (var d = 0; d < 7; d++) {
-        svg += '<text x="0" y="' + (monthLabelH + 20 + d * (cellSize + gap) + cellSize/2 + 3) + '" fill="var(--text-dim)" font-size="9">' + days[d] + '</text>';
+        svg += '<text x="0" y="' + (monthLabelH + 20 + d * (cellSize + gap) + cellSize/2 + 3) + '" fill="var(--text-dim)" font-size="9">' + dayLabels[d] + '</text>';
     }
-    // Month labels
     var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     var lastMonth = -1;
     for (var i = 0; i < data.length; i++) {
@@ -391,46 +458,42 @@ function renderCalendar(containerId, data, year) {
         var col = Math.floor(idx / 7);
         var row = idx % 7;
         if (row === 0) {
-            var m = parseInt(data[i].date.substring(5, 7)) - 1;
-            if (m !== lastMonth) {
-                var x = 35 + col * (cellSize + gap);
-                svg += '<text x="' + x + '" y="' + 10 + '" fill="var(--text-dim)" font-size="9">' + months[m] + '</text>';
-                lastMonth = m;
+            var mo = parseInt(data[i].date.substring(5, 7)) - 1;
+            if (mo !== lastMonth) {
+                svg += '<text x="' + (35 + col * (cellSize + gap)) + '" y="10" fill="var(--text-dim)" font-size="9">' + months[mo] + '</text>';
+                lastMonth = mo;
             }
         }
     }
-    // Cells
     for (var i = 0; i < data.length; i++) {
         var idx = i + startDow;
         var col = Math.floor(idx / 7);
         var row = idx % 7;
         var x = 35 + col * (cellSize + gap);
         var y = monthLabelH + 15 + row * (cellSize + gap);
-        var color;
-        if (data[i].total === 0) {
-            color = 'var(--border)';
-        } else {
+        var color = 'var(--border)';
+        var opacity = '0.15';
+        if (data[i].total > 0) {
+            opacity = '0.9';
             var wr = data[i].winrate;
             if (wr >= 70) color = '#27ae60';
             else if (wr >= 55) color = '#4ecca3';
             else if (wr >= 45) color = '#f39c12';
             else if (wr >= 30) color = '#e67e22';
-            else color = '#e94560';
+            else color = 'var(--accent-red)';
         }
         var title = data[i].date + ': ' + data[i].wins + 'W ' + data[i].losses + 'L' + (data[i].winrate !== null ? ' (' + data[i].winrate + '%)' : '');
-        svg += '<rect x="' + x + '" y="' + y + '" width="' + cellSize + '" height="' + cellSize + '" rx="2" fill="' + color + '" opacity="' + (data[i].total === 0 ? '0.15' : '0.9') + '"><title>' + title + '</title></rect>';
+        svg += '<rect x="' + x + '" y="' + y + '" width="' + cellSize + '" height="' + cellSize + '" rx="2" fill="' + color + '" opacity="' + opacity + '"><title>' + title + '</title></rect>';
     }
     svg += '</svg>';
     el.innerHTML = svg;
 }
-
 loadCalendar(_calYear);
 
 // Hourly performance chart
 fetchJSON('/api/stats/hourly' + apiQuery, function(data) {
     renderHourlyChart('hourly-chart', data);
 });
-
 function renderHourlyChart(containerId, data) {
     var el = document.getElementById(containerId);
     if (!data) return;
@@ -440,7 +503,6 @@ function renderHourlyChart(containerId, data) {
     var ch = H - pad.top - pad.bottom;
     var barW = cw / 24 - 2;
     var maxTotal = Math.max.apply(null, data.map(function(d) { return d.total; })) || 1;
-
     var svg = '<svg width="' + W + '" height="' + H + '" style="display:block;">';
     for (var g = 0; g <= 4; g++) {
         var gy = pad.top + (g / 4) * ch;
@@ -450,7 +512,6 @@ function renderHourlyChart(containerId, data) {
     }
     var y50 = pad.top + ch * 0.5;
     svg += '<line x1="' + pad.left + '" y1="' + y50 + '" x2="' + (W - pad.right) + '" y2="' + y50 + '" stroke="var(--text-dim)" stroke-width="1" stroke-dasharray="4"/>';
-
     for (var i = 0; i < data.length; i++) {
         var x = pad.left + (cw / 24) * i + 1;
         var wrHeight = data[i].total > 0 ? (data[i].winrate / 100) * ch : 0;
@@ -467,43 +528,37 @@ function renderHourlyChart(containerId, data) {
     el.innerHTML = svg;
 }
 
-// Matchup Stats (character selector + stacked bars)
+// Matchup Stats
 var _matchupData = null;
-var _matchupSelected = 'all';
-
 fetchJSON('/api/stats/heatmap' + apiQuery, function(data) {
     _matchupData = data;
     buildMatchupSelector(data);
-    renderMatchupBars('all');
+    renderMatchupBars(selectedChar || 'all');
 });
-
 function buildMatchupSelector(data) {
     var sel = document.getElementById('matchup-char-selector');
     if (!data || !data.data || data.data.length === 0) return;
+    if (selectedChar) {
+        sel.innerHTML = '<span style="font-size:0.8rem;color:var(--text-dim);">Filtered by: ' + selectedChar + '</span>';
+        return;
+    }
     var html = '<button class="btn btn-primary matchup-sel-btn" data-char="all" onclick="selectMatchupChar(\'all\')" style="font-size:0.8rem;padding:4px 12px;">All</button>';
     data.data.forEach(function(row) {
         html += '<button class="btn btn-secondary matchup-sel-btn" data-char="' + row.my_character + '" onclick="selectMatchupChar(\'' + row.my_character + '\')" style="font-size:0.8rem;padding:4px 12px;">' + row.my_character + '</button>';
     });
     sel.innerHTML = html;
 }
-
 function selectMatchupChar(char) {
-    _matchupSelected = char;
     document.querySelectorAll('.matchup-sel-btn').forEach(function(b) {
         b.classList.toggle('btn-primary', b.dataset.char === char);
         b.classList.toggle('btn-secondary', b.dataset.char !== char);
     });
     renderMatchupBars(char);
 }
-
 function renderMatchupBars(char) {
     var el = document.getElementById('matchup-bars');
     var data = _matchupData;
-    if (!data || !data.data || data.data.length === 0) {
-        el.innerHTML = '<p style="color:var(--text-dim);padding:20px;">No data</p>';
-        return;
-    }
-    // Aggregate matchups
+    if (!data || !data.data || data.data.length === 0) { el.innerHTML = '<p style="color:var(--text-dim);padding:20px;">No data</p>'; return; }
     var agg = {};
     data.data.forEach(function(row) {
         if (char !== 'all' && row.my_character !== char) return;
@@ -513,26 +568,24 @@ function renderMatchupBars(char) {
             agg[cell.opp_character].losses += cell.losses;
         });
     });
-    // Build sorted array
     var rows = [];
     for (var name in agg) {
         var w = agg[name].wins, l = agg[name].losses, t = w + l;
-        if (t > 0) rows.push({name: name, wins: w, losses: l, total: t, winrate: Math.round(w / t * 100 * 10) / 10});
+        if (t > 0) rows.push({name: name, wins: w, losses: l, total: t, winrate: Math.round(w / t * 1000) / 10});
     }
     rows.sort(function(a, b) { return b.total - a.total; });
     if (rows.length === 0) { el.innerHTML = '<p style="color:var(--text-dim);padding:20px;">No data</p>'; return; }
-    // Render table
-    var html = '<table><thead><tr><th>Opponent</th><th style="min-width:180px;">W / L</th><th>Rate</th><th>Total</th></tr></thead><tbody>';
+    var html = '<table id="matchup-table"><thead><tr><th class="sortable" data-sort="name" data-table="matchup-table">Opponent</th><th style="min-width:180px;">W / L</th><th class="sortable" data-sort="winrate" data-table="matchup-table">Rate</th><th class="sortable" data-sort="total" data-table="matchup-table">Total</th></tr></thead><tbody>';
     rows.forEach(function(s) {
-        var rateColor = s.winrate >= 50 ? 'color:var(--accent-green)' : 'color:#e94560';
-        html += '<tr><td>' + s.name + '</td><td>';
+        var rateColor = s.winrate >= 50 ? 'color:var(--accent-green)' : 'color:var(--accent-red)';
+        html += '<tr data-name="' + s.name + '" data-winrate="' + s.winrate + '" data-total="' + s.total + '"><td>' + s.name + '</td><td>';
         html += '<div style="display:flex;height:22px;border-radius:3px;overflow:hidden;min-width:120px;">';
         if (s.wins > 0) {
             html += '<div style="width:' + s.winrate + '%;background:var(--accent-green);display:flex;align-items:center;justify-content:center;min-width:24px;">';
             html += '<span style="font-size:0.75rem;color:#fff;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,0.3);">' + s.wins + '</span></div>';
         }
         if (s.losses > 0) {
-            html += '<div style="width:' + (100 - s.winrate) + '%;background:#e94560;display:flex;align-items:center;justify-content:center;min-width:24px;">';
+            html += '<div style="width:' + (100 - s.winrate) + '%;background:var(--accent-red);display:flex;align-items:center;justify-content:center;min-width:24px;">';
             html += '<span style="font-size:0.75rem;color:#fff;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,0.3);">' + s.losses + '</span></div>';
         }
         html += '</div></td>';
@@ -541,31 +594,55 @@ function renderMatchupBars(char) {
     });
     html += '</tbody></table>';
     el.innerHTML = html;
+    bindSortHeaders();
 }
 
-// Rolling Win Rate
-function loadRolling(window) {
-    document.querySelectorAll('.rolling-btn').forEach(function(b) {
-        b.classList.toggle('btn-primary', parseInt(b.dataset.window) === window);
-        b.classList.toggle('btn-secondary', parseInt(b.dataset.window) !== window);
-    });
-    var modeParam = currentMode !== 'all' ? '&mode=' + currentMode : '';
-    fetchJSON('/api/stats/rolling-winrate?window=' + window + modeParam, function(data) {
-        renderRollingChart('rolling-chart', data);
-    });
-}
-
-function renderRollingChart(containerId, data) {
+// Day x Hour Heatmap
+fetchJSON('/api/stats/day-hour' + (currentMode !== 'all' ? '?mode=' + currentMode + charParam : (charParam ? '?' + charParam.substring(1) : '')), function(data) {
+    renderDayHourHeatmap('day-hour-heatmap', data);
+});
+function renderDayHourHeatmap(containerId, data) {
     var el = document.getElementById(containerId);
-    if (!data || data.length < 2) { el.innerHTML = '<p style="color:var(--text-dim);text-align:center;padding:40px 0;">Not enough data</p>'; return; }
+    if (!data || data.length === 0) { el.innerHTML = '<p style="color:var(--text-dim);padding:20px;">No data</p>'; return; }
+    var dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    var html = '<table style="font-size:0.75rem;"><thead><tr><th></th>';
+    for (var h = 0; h < 24; h++) html += '<th style="padding:2px 4px;text-align:center;">' + h + '</th>';
+    html += '</tr></thead><tbody>';
+    for (var d = 0; d < 7; d++) {
+        html += '<tr><td style="font-weight:600;padding-right:6px;white-space:nowrap;">' + dayNames[d] + '</td>';
+        for (var h = 0; h < 24; h++) {
+            var cell = data[d][h];
+            var bg = 'transparent';
+            var txt = '';
+            if (cell.total > 0) {
+                txt = cell.total;
+                var wr = cell.winrate;
+                if (wr >= 60) bg = 'rgba(78,204,163,0.5)';
+                else if (wr >= 50) bg = 'rgba(78,204,163,0.2)';
+                else if (wr >= 40) bg = 'rgba(233,69,96,0.2)';
+                else bg = 'rgba(233,69,96,0.5)';
+            }
+            html += '<td style="text-align:center;padding:3px;background:' + bg + ';min-width:28px;" title="' + dayNames[d] + ' ' + h + ':00 — ' + cell.wins + 'W ' + cell.losses + 'L' + (cell.winrate !== null ? ' (' + cell.winrate + '%)' : '') + '">' + txt + '</td>';
+        }
+        html += '</tr>';
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+// Session Fatigue
+fetchJSON('/api/stats/fatigue' + (currentMode !== 'all' ? '?mode=' + currentMode + charParam : (charParam ? '?' + charParam.substring(1) : '')), function(data) {
+    renderFatigueChart('fatigue-chart', data);
+});
+function renderFatigueChart(containerId, data) {
+    var el = document.getElementById(containerId);
+    if (!data || data.length < 3) { el.innerHTML = '<p style="color:var(--text-dim);text-align:center;padding:40px 0;">Not enough session data</p>'; return; }
     var W = el.clientWidth || 600, H = 200;
     var pad = {top: 20, right: 20, bottom: 30, left: 50};
     var cw = W - pad.left - pad.right;
     var ch = H - pad.top - pad.bottom;
-
     function sx(i) { return pad.left + (i / (data.length - 1)) * cw; }
     function sy(v) { return pad.top + ch - (v / 100) * ch; }
-
     var svg = '<svg width="' + W + '" height="' + H + '" style="display:block;">';
     for (var g = 0; g <= 4; g++) {
         var gy = pad.top + (g / 4) * ch;
@@ -574,21 +651,89 @@ function renderRollingChart(containerId, data) {
         svg += '<text x="' + (pad.left - 5) + '" y="' + (gy + 4) + '" fill="var(--text-dim)" font-size="10" text-anchor="end">' + gv + '%</text>';
     }
     svg += '<line x1="' + pad.left + '" y1="' + sy(50) + '" x2="' + (W - pad.right) + '" y2="' + sy(50) + '" stroke="var(--text-dim)" stroke-width="1" stroke-dasharray="4"/>';
-
     var pathD = '';
     for (var i = 0; i < data.length; i++) {
         pathD += (i === 0 ? 'M' : 'L') + sx(i).toFixed(1) + ',' + sy(data[i].winrate).toFixed(1);
     }
-    svg += '<path d="' + pathD + '" fill="none" stroke="#4ecca3" stroke-width="2"/>';
+    svg += '<path d="' + pathD + '" fill="none" stroke="var(--accent-green)" stroke-width="2"/>';
     for (var i = 0; i < data.length; i++) {
-        var color = data[i].winrate >= 50 ? '#4ecca3' : '#e94560';
-        svg += '<circle cx="' + sx(i).toFixed(1) + '" cy="' + sy(data[i].winrate).toFixed(1) + '" r="2" fill="' + color + '"/>';
+        var color = data[i].winrate >= 50 ? 'var(--accent-green)' : 'var(--accent-red)';
+        svg += '<circle cx="' + sx(i).toFixed(1) + '" cy="' + sy(data[i].winrate).toFixed(1) + '" r="3" fill="' + color + '"><title>Game #' + data[i].game_num + ': ' + data[i].winrate + '% (' + data[i].total + ' sessions)</title></circle>';
+    }
+    // X-axis labels
+    var labelInterval = Math.max(1, Math.floor(data.length / 10));
+    for (var i = 0; i < data.length; i += labelInterval) {
+        svg += '<text x="' + sx(i).toFixed(1) + '" y="' + (H - 5) + '" fill="var(--text-dim)" font-size="10" text-anchor="middle">#' + data[i].game_num + '</text>';
     }
     svg += '</svg>';
     el.innerHTML = svg;
 }
 
-// Initialize rolling chart with window=10
+// Rolling Win Rate
+function loadRolling(win) {
+    document.querySelectorAll('.rolling-btn').forEach(function(b) {
+        b.classList.toggle('btn-primary', parseInt(b.dataset.window) === win);
+        b.classList.toggle('btn-secondary', parseInt(b.dataset.window) !== win);
+    });
+    var modeParam = currentMode !== 'all' ? '&mode=' + currentMode : '';
+    fetchJSON('/api/stats/rolling-winrate?window=' + win + modeParam, function(data) {
+        renderRollingChart('rolling-chart', data);
+    });
+}
+function renderRollingChart(containerId, data) {
+    var el = document.getElementById(containerId);
+    if (!data || data.length < 2) { el.innerHTML = '<p style="color:var(--text-dim);text-align:center;padding:40px 0;">Not enough data</p>'; return; }
+    var W = el.clientWidth || 600, H = 200;
+    var pad = {top: 20, right: 20, bottom: 30, left: 50};
+    var cw = W - pad.left - pad.right;
+    var ch = H - pad.top - pad.bottom;
+    function sx(i) { return pad.left + (i / (data.length - 1)) * cw; }
+    function sy(v) { return pad.top + ch - (v / 100) * ch; }
+    var svg = '<svg width="' + W + '" height="' + H + '" style="display:block;">';
+    for (var g = 0; g <= 4; g++) {
+        var gy = pad.top + (g / 4) * ch;
+        svg += '<line x1="' + pad.left + '" y1="' + gy + '" x2="' + (W - pad.right) + '" y2="' + gy + '" stroke="var(--border)" stroke-width="1"/>';
+        svg += '<text x="' + (pad.left - 5) + '" y="' + (gy + 4) + '" fill="var(--text-dim)" font-size="10" text-anchor="end">' + (100 - (g / 4) * 100) + '%</text>';
+    }
+    svg += '<line x1="' + pad.left + '" y1="' + sy(50) + '" x2="' + (W - pad.right) + '" y2="' + sy(50) + '" stroke="var(--text-dim)" stroke-width="1" stroke-dasharray="4"/>';
+    var pathD = '';
+    for (var i = 0; i < data.length; i++) {
+        pathD += (i === 0 ? 'M' : 'L') + sx(i).toFixed(1) + ',' + sy(data[i].winrate).toFixed(1);
+    }
+    svg += '<path d="' + pathD + '" fill="none" stroke="var(--accent-green)" stroke-width="2"/>';
+    for (var i = 0; i < data.length; i++) {
+        var color = data[i].winrate >= 50 ? 'var(--accent-green)' : 'var(--accent-red)';
+        svg += '<circle cx="' + sx(i).toFixed(1) + '" cy="' + sy(data[i].winrate).toFixed(1) + '" r="2" fill="' + color + '"/>';
+    }
+    svg += '</svg>';
+    el.innerHTML = svg;
+}
 loadRolling(10);
+
+// Table sort
+function bindSortHeaders() {
+    document.querySelectorAll('.sortable').forEach(function(th) {
+        th.style.cursor = 'pointer';
+        th.onclick = function() {
+            var tableId = th.dataset.table;
+            var sortKey = th.dataset.sort;
+            var table = document.getElementById(tableId);
+            if (!table) return;
+            var tbody = table.querySelector('tbody');
+            var rows = Array.from(tbody.querySelectorAll('tr'));
+            var asc = th.dataset.dir === 'asc';
+            th.dataset.dir = asc ? 'desc' : 'asc';
+            rows.sort(function(a, b) {
+                var va = a.dataset[sortKey] || '';
+                var vb = b.dataset[sortKey] || '';
+                var na = parseFloat(va), nb = parseFloat(vb);
+                if (!isNaN(na) && !isNaN(nb)) return asc ? na - nb : nb - na;
+                return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+            });
+            rows.forEach(function(r) { tbody.appendChild(r); });
+        };
+    });
+}
+bindSortHeaders();
 </script>
 {% endblock %}
