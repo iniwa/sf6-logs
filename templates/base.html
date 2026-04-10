@@ -11,10 +11,10 @@
     <div id="top-bar">
         <a href="/" class="brand">SF6 Stats</a>
         <div class="nav-links">
-            <a href="/">Dashboard</a>
-            <a href="/report">Report</a>
-            <a href="/overlay-settings">Overlay</a>
-            <a href="/settings">Settings</a>
+            <a href="/" {% if request.path == '/' %}class="nav-active"{% endif %}>Dashboard</a>
+            <a href="/report" {% if request.path == '/report' %}class="nav-active"{% endif %}>Report</a>
+            <a href="/overlay-settings" {% if request.path.startswith('/overlay') %}class="nav-active"{% endif %}>Overlay</a>
+            <a href="/settings" {% if request.path == '/settings' %}class="nav-active"{% endif %}>Settings</a>
         </div>
         <div class="status-area">
             <select id="theme-select" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:0.75rem;" onchange="setTheme(this.value)">

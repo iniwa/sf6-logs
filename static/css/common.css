@@ -50,6 +50,7 @@ body {
     transition: background 0.2s;
 }
 .nav-links a:hover { background: var(--bg-hover); color: var(--text); }
+.nav-links a.nav-active { color: var(--accent); font-weight: 700; border-bottom: 2px solid var(--accent); }
 
 .status-area { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 

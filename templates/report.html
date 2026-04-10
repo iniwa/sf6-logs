@@ -42,6 +42,55 @@
   </div>
 </div>
 
+<!-- Personal Records (All-time) -->
+{% if records and records.total_matches %}
+<div class="card">
+  <h2>Personal Records</h2>
+  <div class="summary-row" style="margin-bottom:0;">
+    <div class="stat-box" style="padding:12px 16px;">
+      <div class="value" style="font-size:1.2rem;">{{ records.total_matches }}</div>
+      <div class="label">Total Matches</div>
+    </div>
+    <div class="stat-box" style="padding:12px 16px;">
+      <div class="value" style="font-size:1.2rem;color:{{ 'var(--accent-green)' if records.total_winrate >= 50 else 'var(--accent-red)' }}">{{ records.total_winrate }}%</div>
+      <div class="label">All-time WR</div>
+    </div>
+    {% if records.best_mr %}
+    <div class="stat-box" style="padding:12px 16px;">
+      <div class="value" style="font-size:1.2rem;">{{ records.best_mr }}</div>
+      <div class="label">Best MR</div>
+    </div>
+    {% endif %}
+    <div class="stat-box" style="padding:12px 16px;">
+      <div class="value result-win" style="font-size:1.2rem;">{{ records.best_win_streak }}</div>
+      <div class="label">Best Win Streak</div>
+    </div>
+    <div class="stat-box" style="padding:12px 16px;">
+      <div class="value result-lose" style="font-size:1.2rem;">{{ records.worst_lose_streak }}</div>
+      <div class="label">Worst Lose Streak</div>
+    </div>
+    {% if records.best_day_wins %}
+    <div class="stat-box" style="padding:12px 16px;">
+      <div class="value" style="font-size:1.2rem;">{{ records.best_day_wins.wins }}W</div>
+      <div class="label">Most Wins/Day<br><span style="font-size:0.7rem;">{{ records.best_day_wins.date }}</span></div>
+    </div>
+    {% endif %}
+    {% if records.most_games_day %}
+    <div class="stat-box" style="padding:12px 16px;">
+      <div class="value" style="font-size:1.2rem;">{{ records.most_games_day.total }}</div>
+      <div class="label">Most Games/Day<br><span style="font-size:0.7rem;">{{ records.most_games_day.date }}</span></div>
+    </div>
+    {% endif %}
+    {% if records.best_day_winrate %}
+    <div class="stat-box" style="padding:12px 16px;">
+      <div class="value" style="font-size:1.2rem;color:var(--accent-green)">{{ records.best_day_winrate.winrate }}%</div>
+      <div class="label">Best Day WR (5+)<br><span style="font-size:0.7rem;">{{ records.best_day_winrate.date }}</span></div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 {% if data.total == 0 %}
 <div class="card"><p style="text-align:center;color:var(--text-dim);padding:40px 0;">{{ data.period }} のデータがありません</p></div>
 {% else %}

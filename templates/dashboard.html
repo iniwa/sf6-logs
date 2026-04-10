@@ -93,6 +93,10 @@
                 <span id="cal-year-label" style="font-size:0.85rem;min-width:40px;text-align:center;"></span>
                 <button class="btn btn-secondary" id="cal-next" onclick="changeCalYear(1)" style="font-size:0.75rem;padding:2px 8px;">&gt;</button>
             </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+                <button id="cal-mode-wr" class="btn btn-primary" onclick="setCalMode('winrate')" style="font-size:0.7rem;padding:2px 8px;">Win Rate</button>
+                <button id="cal-mode-count" class="btn btn-secondary" onclick="setCalMode('count')" style="font-size:0.7rem;padding:2px 8px;">Games</button>
+            </div>
             <div id="cal-legend" style="display:flex;gap:3px;align-items:center;margin-left:auto;font-size:0.7rem;color:var(--text-dim);">
                 Lose
                 <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e94560;opacity:0.9;"></span>
@@ -158,12 +162,6 @@
         <div class="value result-lose" id="worst-lose-streak">-</div>
         <div class="label">Worst Lose Streak</div>
     </div>
-</div>
-
-{# ── Personal Records ── #}
-<div id="records-section" class="card" style="display:none;">
-    <h2>Personal Records</h2>
-    <div id="records-content" class="summary-row" style="margin-bottom:0;"></div>
 </div>
 
 {# ── MR/LP Trend ── #}
@@ -385,24 +383,6 @@ fetchJSON('/api/stats/streaks' + apiQuery, function(data) {
     }
 });
 
-// Personal Records
-fetchJSON('/api/stats/records' + (currentMode !== 'all' ? '?mode=' + currentMode : ''), function(data) {
-    if (!data || !data.total_matches) return;
-    var el = document.getElementById('records-content');
-    var html = '';
-    function box(val, label) { return '<div class="stat-box" style="padding:12px 16px;"><div class="value" style="font-size:1.2rem;">' + val + '</div><div class="label">' + label + '</div></div>'; }
-    html += box(data.total_matches, 'Total Matches');
-    html += box(data.total_winrate + '%', 'All-time WR');
-    if (data.best_mr) html += box(data.best_mr, 'Best MR');
-    html += box(data.best_win_streak, 'Best Win Streak');
-    html += box(data.worst_lose_streak, 'Worst Lose Streak');
-    if (data.best_day_wins) html += box(data.best_day_wins.wins + 'W (' + data.best_day_wins.date + ')', 'Most Wins/Day');
-    if (data.most_games_day) html += box(data.most_games_day.total + ' (' + data.most_games_day.date + ')', 'Most Games/Day');
-    if (data.best_day_winrate) html += box(data.best_day_winrate.winrate + '% (' + data.best_day_winrate.date + ')', 'Best Day WR (5+)');
-    el.innerHTML = html;
-    document.getElementById('records-section').style.display = '';
-});
-
 // Rematches
 fetchJSON('/api/stats/rematches' + apiQuery, function(data) {
     if (data.length > 0) {
@@ -418,6 +398,28 @@ fetchJSON('/api/stats/rematches' + apiQuery, function(data) {
 
 // Activity Calendar
 var _calYear = new Date().getFullYear();
+var _calMode = 'winrate';
+var _calData = null;
+function setCalMode(mode) {
+    _calMode = mode;
+    document.getElementById('cal-mode-wr').className = 'btn ' + (mode === 'winrate' ? 'btn-primary' : 'btn-secondary');
+    document.getElementById('cal-mode-count').className = 'btn ' + (mode === 'count' ? 'btn-primary' : 'btn-secondary');
+    var legend = document.getElementById('cal-legend');
+    if (mode === 'count') {
+        legend.innerHTML = 'Less <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent-green);opacity:0.2;"></span>'
+            + '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent-green);opacity:0.4;"></span>'
+            + '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent-green);opacity:0.6;"></span>'
+            + '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent-green);opacity:0.8;"></span>'
+            + '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent-green);opacity:1;"></span> More';
+    } else {
+        legend.innerHTML = 'Lose <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e94560;opacity:0.9;"></span>'
+            + '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e67e22;opacity:0.9;"></span>'
+            + '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f39c12;opacity:0.9;"></span>'
+            + '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#4ecca3;opacity:0.9;"></span>'
+            + '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#27ae60;opacity:0.9;"></span> Win';
+    }
+    if (_calData) renderCalendar('activity-calendar', _calData);
+}
 function loadCalendar(year) {
     _calYear = year;
     document.getElementById('cal-year-label').textContent = year;
@@ -428,6 +430,7 @@ function loadCalendar(year) {
     var days = Math.floor((endDate - startDate) / 86400000) + 1;
     var modeParam = currentMode !== 'all' ? '&mode=' + currentMode : '';
     fetchJSON('/api/stats/calendar?days=' + days + '&year=' + year + modeParam, function(data) {
+        _calData = data;
         renderCalendar('activity-calendar', data);
     });
 }
@@ -439,6 +442,7 @@ function changeCalYear(delta) {
 function renderCalendar(containerId, data) {
     var el = document.getElementById(containerId);
     if (!data || data.length === 0) { el.innerHTML = '<p style="color:var(--text-dim);padding:20px;">No data</p>'; return; }
+    var maxTotal = Math.max.apply(null, data.map(function(d) { return d.total; })) || 1;
     var cellSize = 11, gap = 2;
     var startDate = new Date(data[0].date + 'T00:00:00');
     var startDow = (startDate.getDay() + 6) % 7;
@@ -475,14 +479,19 @@ function renderCalendar(containerId, data) {
         var opacity = '0.15';
         if (data[i].total > 0) {
             opacity = '0.9';
-            var wr = data[i].winrate;
-            if (wr >= 70) color = '#27ae60';
-            else if (wr >= 55) color = '#4ecca3';
-            else if (wr >= 45) color = '#f39c12';
-            else if (wr >= 30) color = '#e67e22';
-            else color = 'var(--accent-red)';
+            if (_calMode === 'count') {
+                color = 'var(--accent-green)';
+                opacity = (Math.min(data[i].total / maxTotal, 1) * 0.8 + 0.2).toFixed(2);
+            } else {
+                var wr = data[i].winrate;
+                if (wr >= 70) color = '#27ae60';
+                else if (wr >= 55) color = '#4ecca3';
+                else if (wr >= 45) color = '#f39c12';
+                else if (wr >= 30) color = '#e67e22';
+                else color = 'var(--accent-red)';
+            }
         }
-        var title = data[i].date + ': ' + data[i].wins + 'W ' + data[i].losses + 'L' + (data[i].winrate !== null ? ' (' + data[i].winrate + '%)' : '');
+        var title = data[i].date + ': ' + data[i].total + ' games, ' + data[i].wins + 'W ' + data[i].losses + 'L' + (data[i].winrate !== null ? ' (' + data[i].winrate + '%)' : '');
         svg += '<rect x="' + x + '" y="' + y + '" width="' + cellSize + '" height="' + cellSize + '" rx="2" fill="' + color + '" opacity="' + opacity + '"><title>' + title + '</title></rect>';
     }
     svg += '</svg>';
@@ -605,7 +614,8 @@ function renderDayHourHeatmap(containerId, data) {
     var el = document.getElementById(containerId);
     if (!data || data.length === 0) { el.innerHTML = '<p style="color:var(--text-dim);padding:20px;">No data</p>'; return; }
     var dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    var html = '<table style="font-size:0.75rem;"><thead><tr><th></th>';
+    var html = '<p style="font-size:0.75rem;color:var(--text-dim);margin-bottom:6px;">Cell = Win Rate % (hover for details)</p>';
+    html += '<table style="font-size:0.75rem;"><thead><tr><th></th>';
     for (var h = 0; h < 24; h++) html += '<th style="padding:2px 4px;text-align:center;">' + h + '</th>';
     html += '</tr></thead><tbody>';
     for (var d = 0; d < 7; d++) {
@@ -615,14 +625,14 @@ function renderDayHourHeatmap(containerId, data) {
             var bg = 'transparent';
             var txt = '';
             if (cell.total > 0) {
-                txt = cell.total;
                 var wr = cell.winrate;
+                txt = wr + '%';
                 if (wr >= 60) bg = 'rgba(78,204,163,0.5)';
                 else if (wr >= 50) bg = 'rgba(78,204,163,0.2)';
                 else if (wr >= 40) bg = 'rgba(233,69,96,0.2)';
                 else bg = 'rgba(233,69,96,0.5)';
             }
-            html += '<td style="text-align:center;padding:3px;background:' + bg + ';min-width:28px;" title="' + dayNames[d] + ' ' + h + ':00 — ' + cell.wins + 'W ' + cell.losses + 'L' + (cell.winrate !== null ? ' (' + cell.winrate + '%)' : '') + '">' + txt + '</td>';
+            html += '<td style="text-align:center;padding:3px;background:' + bg + ';min-width:36px;border-radius:2px;" title="' + dayNames[d] + ' ' + h + ':00\n' + cell.wins + 'W ' + cell.losses + 'L (' + cell.total + ' games)' + (cell.winrate !== null ? '\nWin Rate: ' + cell.winrate + '%' : '') + '">' + txt + '</td>';
         }
         html += '</tr>';
     }
