@@ -389,48 +389,46 @@ def check_streak_record(match_dict):
 
 # --- 再戦検知 ---
 
+_REMATCH_MIN_COUNT = 4
+
+
 def detect_rematches(limit=50, battle_type=None, since_dt=_UNSET, last_n=None):
-    """連続で同じ相手と対戦している箇所を検知"""
+    """連続で同じ相手と対戦している箇所を検知。
+    SF6 の標準リマッチは 2先取 (最大 3 戦) なので、3 戦までは通常の再戦とみなし、
+    4 戦以上続いた場合のみ REMATCH として扱う。"""
     if last_n:
         matches = storage.get_matches(limit=last_n, battle_type=battle_type)
     elif since_dt is not _UNSET and since_dt is not None:
         matches = storage.get_matches_since(since_dt, battle_type=battle_type)
     else:
         matches = storage.get_matches(limit=limit, battle_type=battle_type)
-    if len(matches) < 2:
+    if len(matches) < _REMATCH_MIN_COUNT:
         return []
 
     groups = []
     current_group = [matches[0]]
 
+    def _flush(group):
+        if len(group) >= _REMATCH_MIN_COUNT:
+            wins = sum(1 for x in group if x['result'] == 'win')
+            losses = len(group) - wins
+            groups.append({
+                'opp_name': group[0]['opp_name'],
+                'opp_character': group[0]['opp_character'],
+                'count': len(group),
+                'wins': wins,
+                'losses': losses,
+                'match_ids': [x['id'] for x in group],
+            })
+
     for m in matches[1:]:
         if m['opp_name'] == current_group[0]['opp_name']:
             current_group.append(m)
         else:
-            if len(current_group) >= 2:
-                wins = sum(1 for x in current_group if x['result'] == 'win')
-                losses = len(current_group) - wins
-                groups.append({
-                    'opp_name': current_group[0]['opp_name'],
-                    'opp_character': current_group[0]['opp_character'],
-                    'count': len(current_group),
-                    'wins': wins,
-                    'losses': losses,
-                    'match_ids': [x['id'] for x in current_group],
-                })
+            _flush(current_group)
             current_group = [m]
 
-    if len(current_group) >= 2:
-        wins = sum(1 for x in current_group if x['result'] == 'win')
-        losses = len(current_group) - wins
-        groups.append({
-            'opp_name': current_group[0]['opp_name'],
-            'opp_character': current_group[0]['opp_character'],
-            'count': len(current_group),
-            'wins': wins,
-            'losses': losses,
-            'match_ids': [x['id'] for x in current_group],
-        })
+    _flush(current_group)
 
     return groups
 
