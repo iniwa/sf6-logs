@@ -43,7 +43,7 @@ def _try_auto_login():
             _status['auto_login_last'] = f'2FA required: {e}'
         return False
     except Exception as e:
-        c.log(f'Auto-login failed: {e}')
+        c.log(f'Auto-login failed: {e}', exc_info=True)
         with _status_lock:
             _status['auto_login_last'] = f'failed: {e}'
         return False
@@ -95,7 +95,7 @@ def _poll_job():
             _status['consecutive_errors'] += 1
             delay = min(interval * (2 ** _status['consecutive_errors']), _MAX_BACKOFF)
             _status['next_retry_at'] = time.time() + delay
-        c.log(f'Poll error: {e}')
+        c.log(f'Poll error: {e}', exc_info=True)
         c.log(f'Backing off: next retry in {delay}s')
 
         # 認証エラーの場合、自動ログインを試行

@@ -34,6 +34,15 @@ Claude Code is responsible for:
 - running requested verification where possible
 - reporting changed files, summary, verification results, blocked checks, and design questions
 
+## Claude Code Model Policy
+Claude Code normally runs in auto mode (automatic model selection). There is no fixed coordinator model.
+
+- Codex owns design decisions and writes handoffs under `docs/handoffs/`.
+- Handoffs are written at a granularity that a Sonnet-class model can complete without design judgment: explicit goal, files, constraints, non-goals, and verification.
+- Claude Code implements and verifies within the handoff scope. Anything requiring design judgment returns to Codex as a design question.
+- Claude Code must not change documented design intent, expand edit scope beyond the handoff, introduce dependencies / build / CI/CD / deployment / external exposure changes, or touch secrets and local settings unless the handoff explicitly allows it.
+- If the intended mode or model is unavailable, continue with what is available and report that limitation.
+
 ## Decision Rule
 Keep work in Codex when:
 - requirements are ambiguous
@@ -128,6 +137,11 @@ After Claude Code returns, review:
 - Use `docs/*.md` for reusable technical notes, architecture details, procedures, and project-specific knowledge.
 - Before meaningful work, check relevant existing docs.
 - Do not silently encode durable design decisions only in code.
+
+## Design Record Scope
+Keep `AGENTS.md` focused on short, durable rules that future Codex and Claude Code sessions must follow.
+
+Do not add `Alternatives Considered` as a default Decision Log heading. When rejected options or longer background matter, summarize only the durable rule in `AGENTS.md` and put the detail under `docs/decisions/`.
 
 ## Decision Log
 

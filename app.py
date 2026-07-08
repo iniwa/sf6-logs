@@ -11,4 +11,4 @@ register_blueprints(app)
 start_scheduler()
 
 if __name__ == '__main__':
-    serve(app, host='0.0.0.0', port=8510, threads=8, ident='sf6-logs')
+    serve(app, host='0.0.0.0', port=8510, threads=32, ident='sf6-logs')

@@ -47,11 +47,15 @@ function updateStats(d) {}
             delta = match.lp_after - match.lp_before;
             unit = ' LP';
         }
-        if (delta !== null) {
+        if (match.show_lp_mr_delta === false) {
+            deltaEl.textContent = '';
+            deltaEl.className = 'popup-delta';
+        } else if (delta !== null) {
             deltaEl.textContent = (delta >= 0 ? '+' : '') + delta + unit;
             deltaEl.className = 'popup-delta ' + (delta >= 0 ? 'popup-delta-pos' : 'popup-delta-neg');
         } else {
             deltaEl.textContent = '';
+            deltaEl.className = 'popup-delta';
         }
 
         /* 対戦キャラ */

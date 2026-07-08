@@ -1,5 +1,9 @@
 # OBS オーバーレイ カスタマイズメモ
 
+> **Status (2026-07-07)**: このメモは設計当時の記録。Phase 2 の分割オーバーレイ
+> (`/overlay/record`, `/lp`, `/history`, `/popup`, `/highlight`) と SSE 更新は実装済み。
+> 現在の仕様は `README.md` の OBS Overlay 節を参照。
+
 ## 現状（Phase 1）
 
 `/overlay` に全部入りオーバーレイのみ実装。

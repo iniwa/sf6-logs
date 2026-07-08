@@ -1,7 +1,4 @@
-from datetime import datetime, timezone, timedelta
-
-JST = timezone(timedelta(hours=9))
-
+from datetime import datetime
 
 def register_filters(app):
 

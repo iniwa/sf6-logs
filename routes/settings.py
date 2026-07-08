@@ -51,6 +51,7 @@ def test_login():
         cfn_auth.auto_login()
         return redirect(url_for('settings.index', msg='login_ok'))
     except Exception as e:
+        c.log(f'Auto-login test failed: {e}', exc_info=True)
         return redirect(url_for('settings.index', msg='login_fail', detail=str(e)))
 
 

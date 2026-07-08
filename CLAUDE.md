@@ -10,6 +10,13 @@
 - Do not commit automatically unless explicitly requested.
 - Report changed files, summary, verification results, blocked checks, and any design questions that should return to Codex.
 
+## Model / Subagent Policy
+- Run in auto mode (automatic model selection) by default. No fixed coordinator model.
+- Codex owns design decisions; handoffs (`docs/handoffs/`) are written so implementation completes without design judgment.
+- Subagents are optional — use them only when isolation helps (broad scans, parallel mechanical edits), with a narrow goal, explicit file scope, constraints, and non-goals.
+- Do not change documented design intent, add dependencies, or alter build/deploy/external exposure without returning the question to Codex.
+- If the intended mode or model is unavailable, continue with the available one and report that limitation.
+
 ## Project Overview
 SF6 Stats Tracker — Street Fighter 6 の対戦成績（LP/MR、勝敗、キャラ別戦績）を自動取得し、ダッシュボードと OBS オーバーレイで表示する Web ツール。Buckler's Boot Camp (CFN) から _next/data API 経由でスクレイピングし、SQLite に蓄積する。
 
@@ -24,13 +31,18 @@ SF6 Stats Tracker — Street Fighter 6 の対戦成績（LP/MR、勝敗、キャ
 ```
 app.py                  # エントリポイント (Flask, port 8510)
 config.py               # 共有設定・ログ・JST 定義
-routes/                 # Blueprint: dashboard, overlay, settings, api
+routes/                 # Blueprint: dashboard, report, overlay, settings, api + filters (Jinja フィルタ)
 services/               # cfn_auth, cfn_scraper, scheduler, stats, storage
-templates/              # Jinja2 テンプレート
+templates/              # Jinja2 テンプレート (overlay/ 配下に OBS 用)
 static/                 # CSS / JS
-docs/                   # 設計メモ (cfn-scraping, overlay-customization)
-issues.md               # タスク管理
+docs/                   # 設計メモ・decisions/ (設計履歴)・handoffs/ (Codex handoff)・improvements.md (改善チェックリスト)
+issues.md               # 機能追加アイデアの管理
 ```
+
+## Verification
+- 自動テスト / lint は未整備（導入候補は `docs/improvements.md` 参照）。
+- 最低限の確認: `git diff --check`、`python app.py` が起動して :8510 が応答すること。
+- 保護対象: `data/`（SQLite 実データ）、認証情報（cookie / CAPCOM ID は DB の config テーブルに保存される）。
 
 ## Coding Style
 - Write lightweight, efficient code. Prefer minimal dependencies.
@@ -65,7 +77,18 @@ Cloudflared (Cloudflare Tunnel) is installed. Configure tunnel when exposing a s
 ## Knowledge Persistence
 - Actively save design decisions, architecture notes, and reusable patterns to `docs/*.md`
 - Before starting work, check `docs/` for existing context that may be relevant
+- Detailed design history belongs in `docs/decisions/`. Keep `AGENTS.md` focused on short, durable rules; do not add `Alternatives Considered` as a default Decision Log heading there.
 
 ## Tooling
 - Use **Serena MCP** tools for code navigation and editing to maximize efficiency (symbol search, overview, replace, insert, etc.)
 - Use **Tavily MCP** for web research. When you need external information (library docs, API references, error solutions, best practices), proactively use Tavily search/research instead of relying solely on training data.
+
+## New Tool Checklist
+- [ ] arm64-compatible base image (`alpine` preferred)
+- [ ] `TZ=Asia/Tokyo` in environment
+- [ ] `restart: unless-stopped`
+- [ ] Image: `ghcr.io/iniwa/{tool-name}:latest`
+- [ ] GitHub Actions workflow at `.github/workflows/docker-publish.yml`
+- [ ] `.claudeignore` in project root
+- [ ] Verify deployment via Portainer Stack
+- [ ] Configure Cloudflare Tunnel if external access is needed

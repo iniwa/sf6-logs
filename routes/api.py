@@ -5,7 +5,7 @@ import threading
 
 from datetime import datetime, timedelta
 
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, jsonify, request, Response, abort
 
 import config as c
 from services import storage, stats, cfn_auth
@@ -16,6 +16,7 @@ bp = Blueprint('api', __name__, url_prefix='/api')
 # --- SSE ---
 _sse_clients = []
 _sse_lock = threading.Lock()
+MAX_SSE_CLIENTS = 16
 
 
 def _notify_clients(match_dict):
@@ -28,13 +29,16 @@ def _notify_clients(match_dict):
     popup_mr_ms = storage.get_config('popup_mr_milestone', '1') == '1'
     popup_streak = storage.get_config('popup_streak_record', '1') == '1'
     popup_best_mr = storage.get_config('popup_best_mr', '1') == '1'
+    show_lp_mr_delta = storage.get_config('popup_lp_mr_delta', '1') == '1'
 
     # 最新マッチ情報を event: match で送信
     match_msg = ""
     if popup_match:
         matches = storage.get_matches(limit=1)
         if matches:
-            match_msg = f"event: match\ndata: {json.dumps(matches[0], ensure_ascii=False)}\n\n"
+            match_payload = dict(matches[0])
+            match_payload['show_lp_mr_delta'] = show_lp_mr_delta
+            match_msg = f"event: match\ndata: {json.dumps(match_payload, ensure_ascii=False)}\n\n"
 
     # マイルストーン通知
     milestone_msgs = []
@@ -90,7 +94,7 @@ def _parse_api_period():
     """API 用の期間パラメータを解析して (since_dt, last_n) を返す"""
     period = request.args.get('period')
     if not period:
-        return stats._UNSET, None  # デフォルト（今日）
+        return stats.UNSET, None  # デフォルト（今日）
     if period == 'all':
         return None, None
 
@@ -110,7 +114,7 @@ def _parse_api_period():
                 pass
         return c.get_now().replace(hour=0, minute=0, second=0, microsecond=0), None
 
-    return stats._UNSET, None
+    return stats.UNSET, None
 
 
 @bp.route('/stats/today')
@@ -255,32 +259,18 @@ def stats_records():
 
 @bp.route('/sessions')
 def sessions_list():
-    sessions = storage.get_all_sessions(limit=50)
-    result = []
-    for s in sessions:
-        started = datetime.fromisoformat(s['started_at'])
-        ended_str = s.get('ended_at')
-        ended = datetime.fromisoformat(ended_str) if ended_str else None
-        matches = storage.get_matches_between(
-            s['started_at'], ended_str
-        )
-        wins = sum(1 for m in matches if m['result'] == 'win')
-        losses = len(matches) - wins
-        total = wins + losses
-        result.append({
-            **s,
-            'wins': wins,
-            'losses': losses,
-            'total': total,
-            'winrate': round(wins / total * 100, 1) if total > 0 else 0.0,
-        })
-    return jsonify(result)
-
+    sessions = storage.get_session_summaries(limit=50)
+    for session in sessions:
+        total = session['total']
+        session['winrate'] = round(session['wins'] / total * 100, 1) if total > 0 else 0.0
+    return jsonify(sessions)
 
 @bp.route('/stream')
 def stream():
     q = queue.Queue(maxsize=50)
     with _sse_lock:
+        if len(_sse_clients) >= MAX_SSE_CLIENTS:
+            abort(503)
         _sse_clients.append(q)
 
     def generate():

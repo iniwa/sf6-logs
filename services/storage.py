@@ -4,6 +4,13 @@ import json
 import config as c
 
 
+MATCH_COLUMNS = (
+    'id, replay_id, played_at, battle_type, my_character, opp_character, '
+    'opp_name, result, lp_before, lp_after, mr_before, mr_after, '
+    'opp_lp, opp_mr, created_at'
+)
+
+
 _post_insert_hooks = []
 
 
@@ -218,8 +225,8 @@ def insert_match(match_dict):
                 for hook in _post_insert_hooks:
                     try:
                         hook(match_dict)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        c.log(f'post-insert hook error: {e}', exc_info=True)
             return inserted
         finally:
             conn.close()
@@ -243,7 +250,7 @@ def get_matches(limit=50, offset=0, battle_type=None):
     with c.db_lock:
         conn = _connect()
         try:
-            sql = 'SELECT * FROM matches'
+            sql = f'SELECT {MATCH_COLUMNS} FROM matches'
             params = []
             if battle_type:
                 sql += ' WHERE battle_type = ?'
@@ -260,7 +267,7 @@ def get_matches_since(since_dt=None, battle_type=None, limit=None):
     with c.db_lock:
         conn = _connect()
         try:
-            sql = 'SELECT * FROM matches'
+            sql = f'SELECT {MATCH_COLUMNS} FROM matches'
             params = []
             conditions = []
             if since_dt is not None:
@@ -356,6 +363,29 @@ def get_all_sessions(limit=50):
             conn.close()
 
 
+def get_session_summaries(limit=50):
+    with c.db_lock:
+        conn = _connect()
+        try:
+            rows = conn.execute(
+                '''SELECT s.id, s.started_at, s.ended_at, s.label,
+                          COALESCE(SUM(CASE WHEN m.result = 'win' THEN 1 ELSE 0 END), 0) AS wins,
+                          COALESCE(SUM(CASE WHEN m.result = 'lose' THEN 1 ELSE 0 END), 0) AS losses,
+                          COUNT(m.id) AS total
+                   FROM (
+                       SELECT * FROM sessions ORDER BY started_at DESC LIMIT ?
+                   ) AS s
+                   LEFT JOIN matches AS m
+                     ON m.played_at >= s.started_at
+                    AND (s.ended_at IS NULL OR m.played_at <= s.ended_at)
+                   GROUP BY s.id, s.started_at, s.ended_at, s.label
+                   ORDER BY s.started_at DESC''',
+                (limit,)
+            ).fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            conn.close()
+
 def get_session_by_id(session_id):
     with c.db_lock:
         conn = _connect()
@@ -372,7 +402,7 @@ def get_matches_between(start_dt, end_dt=None, battle_type=None):
     with c.db_lock:
         conn = _connect()
         try:
-            sql = 'SELECT * FROM matches WHERE played_at >= ?'
+            sql = f'SELECT {MATCH_COLUMNS} FROM matches WHERE played_at >= ?'
             params = [start_dt if isinstance(start_dt, str) else start_dt.isoformat()]
             if end_dt:
                 sql += ' AND played_at <= ?'
@@ -391,7 +421,7 @@ def get_all_matches(battle_type=None):
     with c.db_lock:
         conn = _connect()
         try:
-            sql = 'SELECT * FROM matches'
+            sql = f'SELECT {MATCH_COLUMNS} FROM matches'
             params = []
             if battle_type:
                 sql += ' WHERE battle_type = ?'

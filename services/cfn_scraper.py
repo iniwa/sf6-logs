@@ -45,7 +45,7 @@ def _request_battlelog(session, short_id, build_id):
     try:
         return session.get(url, params={'page': 1}, timeout=15)
     except Exception as e:
-        c.log(f'CFN request error: {e}')
+        c.log(f'CFN request error: {e}', exc_info=True)
         return None
 
 
@@ -96,7 +96,7 @@ def _fetch_real_battle_log(session):
         resp.raise_for_status()
         data = resp.json()
     except Exception as e:
-        c.log(f'CFN fetch error: {e}')
+        c.log(f'CFN fetch error: {e}', exc_info=True)
         return []
 
     return _parse_battle_log(data, short_id)
@@ -121,7 +121,7 @@ def _parse_battle_log(data, my_short_id):
                 matches.append(match)
         except Exception as e:
             replay_id = replay.get('replay_id', 'unknown')
-            c.log(f'Failed to parse replay {replay_id}: {e}')
+            c.log(f'Failed to parse replay {replay_id}: {e}', exc_info=True)
 
     # マッチは新しい順。古いマッチの before → 新しいマッチの after として連鎖
     # matches[0] が最新、matches[-1] が最古

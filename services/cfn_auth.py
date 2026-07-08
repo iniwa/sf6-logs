@@ -68,7 +68,7 @@ def get_build_id(session=None, force_refresh=False):
         return build_id
 
     except Exception as e:
-        c.log(f'BuildID fetch error: {e}')
+        c.log(f'BuildID fetch error: {e}', exc_info=True)
         return None
 
 
@@ -376,7 +376,7 @@ def auto_login(email=None, password=None):
     except Exception as req_err:
         if 'invalid email or password' in str(req_err).lower():
             raise  # 認証情報エラーはフォールバックしない
-        c.log(f'Requests login failed: {req_err}, trying Playwright fallback...')
+        c.log(f'Requests login failed: {req_err}, trying Playwright fallback...', exc_info=True)
         if not is_playwright_available():
             raise Exception(
                 f'Requests login failed: {req_err}\n'

@@ -1,4 +1,5 @@
 import os
+import logging
 import threading
 from datetime import datetime, timedelta, timezone
 
@@ -12,6 +13,13 @@ JST = timezone(timedelta(hours=9))
 # スレッド安全なリストとロック
 logs = []
 _log_lock = threading.Lock()
+_logger = logging.getLogger('sf6_logs')
+if not _logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(message)s'))
+    _logger.addHandler(handler)
+_logger.setLevel(logging.INFO)
+_logger.propagate = False
 
 # DB操作用ロック
 db_lock = threading.RLock()
@@ -44,8 +52,8 @@ DEFAULT_CONFIG = {
 }
 
 
-def log(message):
-    print(message)
+def log(message, exc_info=False):
+    _logger.info(message, exc_info=exc_info)
     with _log_lock:
         logs.insert(0, {'message': message, 'timestamp': get_now().isoformat()})
         if len(logs) > MAX_LOGS:

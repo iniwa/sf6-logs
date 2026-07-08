@@ -12,13 +12,22 @@ Street Fighter 6 の対戦データを [CFN (Buckler's Boot Camp)](https://www.s
 - **LP/MR 推移グラフ** -- 折れ線グラフで LP/MR の変動を可視化
 - **ローリング勝率** -- 直近 10 戦 / 20 戦の勝率推移 (SVG 折れ線グラフ)
 - **キャラ別マッチアップヒートマップ** -- 自キャラ x 相手キャラの勝率を色分け表示
-- **Activity Calendar** -- GitHub 風ヒートマップ (過去 90 日)
+- **Activity Calendar** -- GitHub 風ヒートマップ (直近 90 日 / 年単位表示の切替可)
 - **時間帯別パフォーマンス** -- 0-23 時の勝率・試合数 (SVG 棒グラフ)
+- **曜日 x 時間帯ヒートマップ** -- 曜日 x 時間帯ごとの勝率を色分け表示
+- **セッション疲労** -- 連戦時の試合数経過による勝率推移
 - **連勝/連敗 記録** -- Best Win Streak / Worst Lose Streak
-- **再戦検知** -- 連続で同じ相手との対戦をグルーピング表示
-- **期間フィルタ** -- All / 1 Day / 24h / 8h / 1h + 日付指定
+- **再戦検知** -- 同じ相手との連戦 (4 戦以上) をグルーピング表示
+- **期間フィルタ** -- 直近 20 / 100 / 200 戦 / All / カスタム N 戦 + 日付指定
 - **バトルモードフィルタ** -- Ranked / Casual / Battle Hub / Custom
+- **キャラフィルタ** -- 使用キャラで絞り込み
 - **テーマ切替** -- Dark / Light / SF6
+
+### Report (`/report`)
+
+- **週間 / 月間レポート** -- 過去 7 日 / 30 日の日別集計・勝率
+- **Personal Records** -- 歴代の自己記録一覧
+- バトルモードフィルタ対応
 
 ### OBS Overlay
 
@@ -29,6 +38,8 @@ Street Fighter 6 の対戦データを [CFN (Buckler's Boot Camp)](https://www.s
 | `/overlay/lp` | LP/MR のみ |
 | `/overlay/history` | 直近の勝敗ドットのみ |
 | `/overlay/popup` | ポップアップ通知 (イベント発生時のみ表示) |
+| `/overlay/highlight` | セッションサマリー (W/L・勝率・LP/MR 変動・ベスト連勝) |
+| `/overlay/preview` | Overlay Settings 用のプレビュー画面 |
 
 **オプション (クエリパラメータ)**
 
@@ -40,6 +51,9 @@ Street Fighter 6 の対戦データを [CFN (Buckler's Boot Camp)](https://www.s
 | `mode` | `all` / `ranked` / `casual` / `battle_hub` / `custom` | `all` |
 | `anim` | `1` / `0` | `1` |
 | `streak` | `1` / `0` | `1` |
+| `pos` | `right` / `left` | `right` |
+| `char` | `auto` (直近使用キャラ) / キャラ名 | -- (フィルタなし) |
+| `goal` | `1` (目標プログレスバー表示) / `0` | `0` |
 | `test` | `1` (Popup のみ: 常時表示テストモード) | -- |
 
 ### Popup Notification
@@ -146,7 +160,7 @@ services:
 1. http://localhost:8510/settings にアクセス
 2. **CFN User ID** に Buckler's Boot Camp のプロフィール URL の数字 ID を入力
 3. **CFN Cookie** を設定 (ブラウザ DevTools からコピー) または **CAPCOM ID** で自動ログイン設定
-4. Mock Mode を OFF にすると実データの取得を開始 (ポーリング間隔: 90 秒)
+4. Mock Mode を OFF にすると実データの取得を開始 (ポーリング間隔: デフォルト 90 秒、Settings で 5〜90 秒に変更可)
 
 ## Directory Structure
 
@@ -157,8 +171,10 @@ sf6-logs/
   routes/             # Flask Blueprint (画面ごとに分割)
     api.py            #   REST API + SSE
     dashboard.py      #   ダッシュボード
+    report.py         #   週間/月間レポート
     overlay.py        #   OBS オーバーレイ
     settings.py       #   設定画面
+    filters.py        #   Jinja2 テンプレートフィルタ
   services/           # ビジネスロジック
     storage.py        #   DB 操作
     stats.py          #   統計計算
@@ -168,8 +184,17 @@ sf6-logs/
   templates/          # Jinja2 テンプレート
     overlay/          #   OBS オーバーレイ用
   static/             # CSS/JS
+  docs/               # 設計メモ・decisions/・handoffs/・improvements.md
+  issues.md           # 機能追加アイデアの管理
   data/               # SQLite DB (gitignore)
 ```
+
+## Development Workflow
+
+- **設計 → 実装の分担**: Codex が設計判断と handoff (`docs/handoffs/YYYY-MM-DD-*.md`) を作成し、Claude Code (auto モード) が handoff に沿って実装・検証する。詳細は `AGENTS.md` / `CLAUDE.md` を参照。
+- **改善候補**: コード品質・安定性の改善項目は `docs/improvements.md` のチェックリストで管理する。
+- **機能追加アイデア**: `issues.md` で管理する。
+- **検証**: 自動テスト / lint は未整備。最低限 `python app.py` が起動して http://localhost:8510 が応答することを確認する。
 
 ## License
 
