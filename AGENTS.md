@@ -1,163 +1,106 @@
 # AGENTS.md
 
 ## Purpose
-This file is the Codex-side working agreement for `sf6-logs`.
 
-Codex uses this file to preserve design intent, decide whether work should stay in Codex or be handed off to Claude Code, and review implementation results.
-Claude Code uses `CLAUDE.md` for execution rules.
+This is the Codex-side working agreement for `sf6-logs`. It records durable
+product and data constraints, model and handoff policy, review rules, and
+documentation lifecycle. `CLAUDE.md` contains Claude Code execution rules.
 
-## Project Summary
-- Project name: `sf6-logs`
-- Purpose: Street Fighter 6 stats tracker and OBS overlay based on CFN/Buckler data.
-- Summary from project docs: Street Fighter 6 log and analysis tool.
-- Runtime target: Python Flask app, Docker-capable
-- Repository path: `D:\Git\sf6-logs`
-- Stack: Python, Flask, SQLite, APScheduler, BeautifulSoup, requests, Jinja2
+## Project
 
-## Base References
-- Codex base: `D:/Git/CLAUDEmdStrage/_base/AGENTS.md`
-- Claude Code base for Windows/local projects: `D:/Git/CLAUDEmdStrage/_base/CLAUDE_windows.md`
-- Claude Code base for Raspberry Pi Docker projects: `D:/Git/CLAUDEmdStrage/_base/CLAUDE_docker.md`
+`sf6-logs` is a Street Fighter 6 statistics tracker and OBS overlay service. A
+Python Flask application polls CFN/Buckler data, stores match and configuration
+state in SQLite, and renders dashboards, reports, settings, APIs, SSE updates,
+and Jinja/vanilla-JavaScript overlays. It is Docker-capable and runs on a
+Raspberry Pi while retaining the existing multi-architecture image flow.
 
-## Role Split
-Codex is responsible for:
-- clarifying requirements, non-goals, and success criteria
-- identifying change type and design risk
-- preserving responsibility boundaries and design intent
-- preparing scoped Claude Code handoffs when execution is clear
-- reviewing Claude Code output against this file and the handoff
-- recording durable decisions in `AGENTS.md` or `docs/*.md`
+Before substantial work, read `README.md`, `app.py`, `config.py`, relevant
+routes and services, affected tests, and current records under `docs/`.
+Shared generation sources are under `D:/Git/CLAUDEmdStrage/_base/`; this
+project uses the common sources plus the Windows, Docker, and Web profiles.
 
-Claude Code is responsible for:
-- following the current Codex handoff and `CLAUDE.md`
-- editing only allowed files unless it explains why more files are required
-- running requested verification where possible
-- reporting changed files, summary, verification results, blocked checks, and design questions
+## Model and Role Policy
 
-## Claude Code Model Policy
-Claude Code normally runs in auto mode (automatic model selection). There is no fixed coordinator model.
+- Use GPT-5.3-Codex-Spark (`gpt-5.3-codex-spark`) proactively, when available,
+  for low-risk, well-scoped, independently verifiable supporting work that
+  requires no material design judgment or source-code implementation.
+- GPT-5.6 Terra (`gpt-5.6-terra`) or Sol (`gpt-5.6-sol`) owns requirements and
+  design. Whenever Terra is used, set its reasoning level to `high`. Prefer Sol
+  for substantial ambiguity, risk, or cross-boundary reasoning.
+- After design is fixed, delegate source-code implementation first to Claude
+  Code Sonnet 5 at effort medium from the repository root.
+- Only when Sonnet 5 is unavailable because of usage limits or service
+  availability, use GPT-5.6 Luna (`gpt-5.6-luna`) with reasoning level `max`
+  for the same implementation slice.
+- Implementation failure, failed verification, or a design question is not
+  model unavailability; return it to Codex.
+- Apply this policy to every coordinating Codex model and its subagents. Do not
+  create coordinator-specific exceptions.
+- Codex may keep requirements, design, review, read-only investigation,
+  synthesis, and small documentation-consistency changes in one context.
 
-- Codex owns design decisions and writes handoffs under `docs/handoffs/`.
-- Handoffs are written at a granularity that a Sonnet-class model can complete without design judgment: explicit goal, files, constraints, non-goals, and verification.
-- Claude Code implements and verifies within the handoff scope. Anything requiring design judgment returns to Codex as a design question.
-- Claude Code must not change documented design intent, expand edit scope beyond the handoff, introduce dependencies / build / CI/CD / deployment / external exposure changes, or touch secrets and local settings unless the handoff explicitly allows it.
-- If the intended mode or model is unavailable, continue with what is available and report that limitation.
+## Durable Project Rules
 
-## Decision Rule
-Keep work in Codex when:
-- requirements are ambiguous
-- design intent or responsibility boundaries may change
-- the task is small enough to edit and review in one context
-- the main value is planning, review, or documentation consistency
+- Preserve the existing dashboard, report, settings, API, SSE, and OBS overlay
+  routes and their documented URL contracts.
+- Treat CFN/Buckler behavior as an external integration. Preserve request
+  pacing, authentication handling, parsing safeguards, and mock/test isolation;
+  do not increase live request frequency casually.
+- Preserve SQLite compatibility unless an explicit migration is designed and
+  verified. Production match data, sessions, settings, and stored credentials
+  are user data, not disposable test state.
+- Never expose or log CFN cookies, CAPCOM IDs, passwords, or configuration
+  records containing credentials.
+- Preserve the existing Docker image, multi-architecture support, runtime port,
+  restart policy, timezone, and persistent-data volume behavior.
+- Preserve the current production volume mapping. Repository examples contain
+  differing host-directory names; verify the real deployment before changing
+  a host path instead of choosing one by assumption.
+- Do not change CI/CD, image publication, deployment, ports, domains, tunnels,
+  authentication, or external exposure unless explicitly approved.
+- Do not commit, push, or deploy unless explicitly requested.
 
-Hand off to Claude Code when:
-- goal, files, constraints, non-goals, and verification are clear
-- the task is mostly implementation or mechanical editing
-- the allowed edit scope can be stated explicitly
-- Claude Code tooling or iteration speed is useful
+## Protected Files and State
 
-## Project-Specific Guidance
-- Use Raspberry Pi / Docker guidance from `D:/Git/CLAUDEmdStrage/_base`.
-- Preserve `linux/arm64` compatibility unless the project explicitly supports more architectures.
-- Do not change deployment, image naming, Portainer, or external exposure behavior without explicit approval.
+- Do not read, edit, delete, print, or commit `.env`, local settings, `data/`,
+  SQLite production databases, cookies, CAPCOM credentials, container runtime
+  state, or production volumes unless an approved task explicitly requires it.
+- Preserve unrelated working-tree changes. Treat unexpected diffs as having
+  unknown authorship and exclude them from the current task.
 
-## Files To Inspect First
-- CLAUDE.md
-- README.md
-- docs/
-- app.py
-- routes/
-- services/
+## Handoff Workflow
 
-## Files Claude Code May Edit In Scoped Tasks
-- app.py
-- routes/
-- services/
-- templates/
-- static/
-- docs/
+- Keep policy, design, review, investigation, and small documentation changes
+  in Codex. Delegate only after the goal, files, constraints, non-goals, data
+  sources, and verification are clear.
+- One handoff covers one cohesive, independently verifiable route, service
+  behavior, or lifecycle path plus its direct regression coverage.
+- Put substantive handoffs in
+  `docs/handoffs/YYYY-MM-DD-<short-task>.md`. Run unresolved discovery as a
+  separate read-only slice.
+- If a broad handoff times out before its intended edit, do not rerun it
+  unchanged. Narrow the behavior, files, and verification first.
+- The implementer changes only the current slice and returns design questions
+  to Codex. Codex reviews the report and diff before preparing another slice.
+- Keep active or blocked handoffs in `docs/handoffs/`. Move a handoff to
+  `docs/handoffs/archive/` only after implementation, verification, review,
+  required runtime work, and follow-up are complete.
 
-## Constraints
-- Do not break existing dashboard or OBS overlay endpoints.
-- Be careful with CFN scraping behavior and request frequency.
-- Preserve SQLite data compatibility unless migration is explicitly planned.
-- Keep docs updated for scraping and overlay decisions.
-- Do not commit automatically unless explicitly requested.
-- Do not revert user or other-agent changes unless explicitly requested.
-- Do not edit secrets, credentials, `.env`, local runtime data, or generated heavy artifacts unless explicitly requested.
+## Review, Verification, and Documentation
 
-## Handoff Template
-When Codex hands work to Claude Code, create `docs/handoffs/YYYY-MM-DD-<short-task>.md`. Create the `docs/handoffs/` directory if it does not exist. Use this format in that file.
+Review scope, route contracts, scraping behavior, protected data, SQLite
+compatibility, dependencies, deployment, external exposure, verification, and
+unrelated diffs. The available automated suite is:
 
-```md
-Read AGENTS.md, CLAUDE.md, and this handoff file before implementation.
-If implementation would violate constraints or require files outside this handoff, stop and ask before editing.
-
-## Goal
-...
-
-## Background
-...
-
-## Files To Inspect
-- ...
-
-## Files To Edit
-- ...
-
-## Constraints
-- ...
-
-## Non Goals
-- ...
-
-## Verification
-- ...
-
-## Expected Report
-- Changed files
-- Summary
-- Verification results
-- Blocked checks
-- Design questions for Codex
+```powershell
+python -m pytest
 ```
 
-## Codex Review Checklist
-After Claude Code returns, review:
-- Did the diff stay inside the handoff?
-- Did any file outside `Files To Edit` change? If yes, was it necessary?
-- Did the implementation preserve stated constraints and non-goals?
-- Did it introduce dependencies, build tooling, packaging, CI/CD, deployment changes, or external exposure changes unexpectedly?
-- Did it touch secrets, credentials, `.env`, local settings, or runtime data?
-- Did verification run, and are blocked checks explained?
-- Does any discovery need to become a new `AGENTS.md` or `docs/*.md` decision?
+Use `git diff --check` for changed text. A runtime smoke check on port 8510
+must use isolated data and credentials because starting `app.py` also starts
+the scheduler; do not point an ad hoc check at production state.
 
-## Knowledge Persistence
-- Use `AGENTS.md` for durable workflow and design decisions.
-- Use `docs/*.md` for reusable technical notes, architecture details, procedures, and project-specific knowledge.
-- Before meaningful work, check relevant existing docs.
-- Do not silently encode durable design decisions only in code.
-
-## Design Record Scope
-Keep `AGENTS.md` focused on short, durable rules that future Codex and Claude Code sessions must follow.
-
-Do not add `Alternatives Considered` as a default Decision Log heading. When rejected options or longer background matter, summarize only the durable rule in `AGENTS.md` and put the detail under `docs/decisions/`.
-
-## Decision Log
-
-### YYYY-MM-DD: Decision title
-
-Context:
-- What problem or requirement caused this decision?
-
-Decision:
-- What did we decide?
-
-Reason:
-- Why is this the right tradeoff now?
-
-Constraints Introduced:
-- What should future implementation preserve?
-
-Do Not Change Casually:
-- What would cause design drift if changed without review?
+Keep `AGENTS.md` short and current. Put decision context in `docs/decisions/`,
+reusable technical notes under `docs/`, code-improvement candidates in
+`docs/improvements.md`, feature ideas in `issues.md`, active or blocked
+handoffs in `docs/handoffs/`, and completed handoffs in its `archive/`.
