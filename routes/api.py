@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request, Response, abort
 
 import config as c
-from services import storage, stats, cfn_auth
+from services import storage, stats
 from services import scheduler as sched
 
 bp = Blueprint('api', __name__, url_prefix='/api')
@@ -83,10 +83,12 @@ storage.register_post_insert_hook(_notify_clients)
 
 @bp.route('/status')
 def status():
+    scheduler_status = sched.get_scheduler_status()
+    mock_mode = storage.get_config('mock_mode', 'true') == 'true'
     return jsonify({
-        'scheduler': sched.get_scheduler_status(),
-        'authenticated': cfn_auth.is_authenticated(),
-        'mock_mode': storage.get_config('mock_mode', 'true') == 'true',
+        'scheduler': scheduler_status,
+        'authenticated': mock_mode or scheduler_status.get('auth_ok') is True,
+        'mock_mode': mock_mode,
     })
 
 

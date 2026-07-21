@@ -72,18 +72,41 @@
         <h2>Scheduler</h2>
         <p>
             Status: <strong>{{ 'Running' if status.is_running else 'Stopped' }}</strong>
+             | Mode:
+            <strong>
+                {% if status.poll_mode == 'error' %}Error backoff
+                {% elif status.poll_mode == 'idle' %}Idle
+                {% else %}Normal{% endif %}
+            </strong>
             {% if status.last_fetch %}
              | Last fetch: {{ status.last_fetch | format_datetime }}
             {% endif %}
-            {% if status.next_run %}
-             | Next: {{ status.next_run | format_datetime }}
+            {% if status.next_attempt %}
+             | Next attempt: {{ status.next_attempt | format_datetime }}
             {% endif %}
              | Matches found: {{ status.matches_found }}
+        </p>
+        <p style="font-size: 0.85rem; color: var(--text-dim); margin-top: 4px;">
+            Interval: <strong>{{ status.effective_interval }}s</strong>
+            (normal {{ status.normal_interval }}s)
+            {% if status.consecutive_empty_fetches %}
+             | Empty fetches: {{ status.consecutive_empty_fetches }}
+            {% endif %}
         </p>
         <p style="font-size: 0.85rem; color: var(--text-dim); margin-top: 4px;">
             Cookie: {% if status.cookie_saved_at %}saved {{ status.cookie_saved_at | format_datetime }}{% else %}not set{% endif %}
              | Auto-login: {{ 'configured' if status.auto_login_configured else 'not configured' }}
         </p>
+        {% if status.last_error %}
+        <p style="font-size: 0.8rem; color: var(--accent); margin-top: 6px;">
+            Last error: {{ status.last_error }}
+        </p>
+        {% endif %}
+        {% if status.poll_mode == 'idle' %}
+        <form method="POST" action="/settings/polling/normal" style="margin-top: 10px;">
+            <button type="submit" class="btn btn-primary">通常頻度に戻す</button>
+        </form>
+        {% endif %}
     </div>
     <div class="card" style="flex:1;min-width:0;margin-bottom:0;">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">

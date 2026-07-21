@@ -67,6 +67,9 @@ def get_build_id(session=None, force_refresh=False):
             c.log(f'BuildID: {build_id}')
         return build_id
 
+    except requests.RequestException as e:
+        c.log(f'BuildID request error: {type(e).__name__}')
+        return None
     except Exception as e:
         c.log(f'BuildID fetch error: {e}', exc_info=True)
         return None

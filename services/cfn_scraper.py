@@ -3,9 +3,21 @@ import random
 import uuid
 from datetime import datetime, timedelta
 
+import requests
+
 import config as c
 from services import storage
 from services.cfn_auth import get_session, get_build_id, build_api_url
+
+
+class CfnFetchError(Exception):
+    """Expected CFN fetch failure that the scheduler can back off safely."""
+
+    def __init__(self, message, *, kind, status_code=None, retry_after=None):
+        super().__init__(message)
+        self.kind = kind
+        self.status_code = status_code
+        self.retry_after = retry_after
 
 # SF6 キャラクターリスト
 CHARACTERS = [
@@ -41,32 +53,41 @@ def _request_battlelog(session, short_id, build_id):
     """バトルログ API にリクエストを送信"""
     url = build_api_url(f'profile/{short_id}/battlelog.json', build_id)
     if not url:
-        return None
+        raise CfnFetchError('Failed to build CFN battle log URL', kind='response')
     try:
         return session.get(url, params={'page': 1}, timeout=15)
-    except Exception as e:
-        c.log(f'CFN request error: {e}', exc_info=True)
+    except requests.RequestException as e:
+        raise CfnFetchError(
+            f'CFN request failed ({type(e).__name__})',
+            kind='network',
+        ) from None
+
+
+def _retry_after_seconds(response):
+    raw = response.headers.get('Retry-After')
+    if raw is None:
         return None
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value >= 0 else None
 
 
 def _fetch_real_battle_log(session):
     """Buckler's Boot Camp からバトルログを取得"""
     short_id = storage.get_config('cfn_user_id')
     if not short_id:
-        c.log('CFN user ID (short_id) not configured')
-        return []
+        raise CfnFetchError('CFN user ID is not configured', kind='configuration')
 
     if session is None:
         session = get_session()
 
     build_id = get_build_id(session)
     if not build_id:
-        c.log('Failed to get BuildID — cookie may be invalid')
-        return []
+        raise CfnFetchError('Failed to get CFN BuildID', kind='unavailable')
 
     resp = _request_battlelog(session, short_id, build_id)
-    if resp is None:
-        return []
 
     # BuildID 変更による 404 → リフレッシュして1回リトライ
     if resp.status_code == 404:
@@ -75,29 +96,71 @@ def _fetch_real_battle_log(session):
         if new_build_id and new_build_id != build_id:
             c.log(f'BuildID refreshed: {build_id} → {new_build_id}')
             resp = _request_battlelog(session, short_id, new_build_id)
-            if resp is None:
-                return []
 
     # エラーハンドリング
     if resp.status_code == 403:
-        c.log('CFN: 403 Unauthorized — cookie expired or invalid')
-        return []
+        raise CfnFetchError(
+            'CFN authentication failed', kind='auth', status_code=403,
+        )
     if resp.status_code == 404:
-        c.log(f'CFN: 404 Not Found — check short_id: {short_id}')
-        return []
+        raise CfnFetchError(
+            'CFN battle log was not found', kind='response', status_code=404,
+        )
     if resp.status_code == 405 and resp.headers.get('x-amzn-waf-action'):
-        c.log('CFN: Rate limited by WAF — backing off')
-        return []
-    if resp.status_code == 503:
-        c.log('CFN: 503 Under maintenance')
-        return []
+        raise CfnFetchError(
+            'CFN request was rate limited by WAF',
+            kind='rate_limit',
+            status_code=405,
+            retry_after=_retry_after_seconds(resp),
+        )
+    if resp.status_code == 429:
+        raise CfnFetchError(
+            'CFN request was rate limited',
+            kind='rate_limit',
+            status_code=429,
+            retry_after=_retry_after_seconds(resp),
+        )
+    if 500 <= resp.status_code < 600:
+        raise CfnFetchError(
+            'CFN service is unavailable',
+            kind='unavailable',
+            status_code=resp.status_code,
+            retry_after=_retry_after_seconds(resp),
+        )
 
     try:
         resp.raise_for_status()
         data = resp.json()
-    except Exception as e:
-        c.log(f'CFN fetch error: {e}', exc_info=True)
-        return []
+    except requests.HTTPError:
+        raise CfnFetchError(
+            'CFN returned an unexpected HTTP error',
+            kind='response',
+            status_code=resp.status_code,
+        ) from None
+    except (requests.RequestException, ValueError) as e:
+        raise CfnFetchError(
+            f'CFN response could not be decoded ({type(e).__name__})',
+            kind='response',
+            status_code=resp.status_code,
+        ) from None
+
+    if not isinstance(data, dict):
+        raise CfnFetchError(
+            'CFN response has an unexpected format',
+            kind='response',
+            status_code=resp.status_code,
+        )
+
+    page_props = data.get('pageProps')
+    if (
+        not isinstance(page_props, dict)
+        or not isinstance(page_props.get('replay_list'), list)
+    ):
+        raise CfnFetchError(
+            'CFN battle log has an unexpected format',
+            kind='response',
+            status_code=resp.status_code,
+        )
 
     return _parse_battle_log(data, short_id)
 

@@ -1,3 +1,4 @@
+import math
 import time
 import threading
 from datetime import datetime, timedelta
@@ -8,6 +9,9 @@ import config as c
 from services import storage, cfn_auth, cfn_scraper
 
 _MAX_BACKOFF = 1800  # 30 minutes
+_MIN_ERROR_INTERVAL = 90
+_IDLE_EMPTY_THRESHOLD = 5
+_IDLE_INTERVAL = 300
 
 scheduler = BackgroundScheduler(timezone='Asia/Tokyo')
 
@@ -22,8 +26,13 @@ _status = {
     'auto_login_last': None,   # 最後の自動ログイン試行結果
     'consecutive_errors': 0,
     'next_retry_at': None,
+    'normal_interval': 90,
+    'effective_interval': 90,
+    'consecutive_empty_fetches': 0,
+    'is_idle_slowed': False,
 }
 _status_lock = threading.Lock()
+_poll_schedule_lock = threading.Lock()
 
 
 def _try_auto_login():
@@ -49,6 +58,56 @@ def _try_auto_login():
         return False
 
 
+def _reschedule_poll_job(seconds):
+    """Reschedule the CFN job when it has already been registered."""
+    if scheduler.get_job('cfn_poll') is None:
+        return False
+    scheduler.reschedule_job('cfn_poll', trigger='interval', seconds=seconds)
+    return True
+
+
+def _error_backoff_delay(normal_interval, consecutive_errors, retry_after=None):
+    base = max(int(normal_interval), _MIN_ERROR_INTERVAL)
+    delay = min(base * (2 ** consecutive_errors), _MAX_BACKOFF)
+    if retry_after is not None:
+        delay = max(delay, min(int(retry_after), _MAX_BACKOFF))
+    return delay
+
+
+def _record_poll_error(error, mock_mode, expected=False):
+    kind = getattr(error, 'kind', 'unexpected')
+    status_code = getattr(error, 'status_code', None)
+    retry_after = getattr(error, 'retry_after', None)
+    label = kind if status_code is None else f'{kind}/{status_code}'
+    error_msg = f'{label}: {error}'
+    normal_interval = int(storage.get_config('poll_interval', '90'))
+    now = c.get_now().isoformat()
+
+    with _status_lock:
+        _status['last_error'] = error_msg
+        _status['error_count'] += 1
+        _status['consecutive_errors'] += 1
+        delay = _error_backoff_delay(
+            normal_interval,
+            _status['consecutive_errors'],
+            retry_after,
+        )
+        _status['next_retry_at'] = time.time() + delay
+        if kind == 'auth' and not mock_mode:
+            _status['auth_ok'] = False
+            _status['auth_checked_at'] = now
+
+    c.log(f'Poll error: {error_msg}', exc_info=not expected)
+    c.log(f'Backing off: next retry in {delay}s')
+
+    is_auth_error = kind == 'auth' or (
+        '403' in str(error) or 'cookie' in str(error).lower()
+    )
+    if not mock_mode and is_auth_error:
+        c.log('Poll: auth error detected, attempting auto-login...')
+        _try_auto_login()
+
+
 def _poll_job():
     # Backoff guard: skip this invocation if we're still in backoff
     with _status_lock:
@@ -71,37 +130,77 @@ def _poll_job():
             new_count += 1
 
         now = c.get_now().isoformat()
-        with _status_lock:
-            _status['last_fetch'] = now
-            _status['last_error'] = None
-            _status['error_count'] = 0
-            _status['consecutive_errors'] = 0
-            _status['next_retry_at'] = None
-            _status['matches_found'] += new_count
-            if not mock_mode:
-                _status['auth_ok'] = True
-                _status['auth_checked_at'] = now
+        transition_log = None
+        with _poll_schedule_lock:
+            with _status_lock:
+                _status['last_fetch'] = now
+                _status['last_error'] = None
+                _status['error_count'] = 0
+                _status['consecutive_errors'] = 0
+                _status['next_retry_at'] = None
+                _status['matches_found'] += new_count
+                if not mock_mode:
+                    _status['auth_ok'] = True
+                    _status['auth_checked_at'] = now
+
+                normal_interval = _status['normal_interval']
+                if mock_mode:
+                    _status['consecutive_empty_fetches'] = 0
+                    if (
+                        (_status['is_idle_slowed']
+                         or _status['effective_interval'] != normal_interval)
+                        and _reschedule_poll_job(normal_interval)
+                    ):
+                        _status['is_idle_slowed'] = False
+                        _status['effective_interval'] = normal_interval
+                        transition_log = (
+                            f'Polling restored to normal interval: '
+                            f'{normal_interval}s'
+                        )
+                elif new_count > 0:
+                    _status['consecutive_empty_fetches'] = 0
+                    if (
+                        (_status['is_idle_slowed']
+                         or _status['effective_interval'] != normal_interval)
+                        and _reschedule_poll_job(normal_interval)
+                    ):
+                        _status['is_idle_slowed'] = False
+                        _status['effective_interval'] = normal_interval
+                        transition_log = (
+                            f'Polling restored to normal interval: '
+                            f'{normal_interval}s'
+                        )
+                else:
+                    _status['consecutive_empty_fetches'] += 1
+                    if (
+                        _status['consecutive_empty_fetches']
+                        >= _IDLE_EMPTY_THRESHOLD
+                        and not _status['is_idle_slowed']
+                    ):
+                        idle_interval = max(normal_interval, _IDLE_INTERVAL)
+                        if (
+                            idle_interval > normal_interval
+                            and _reschedule_poll_job(idle_interval)
+                        ):
+                            _status['is_idle_slowed'] = True
+                            _status['effective_interval'] = idle_interval
+                            transition_log = (
+                                f'Polling slowed after '
+                                f'{_status["consecutive_empty_fetches"]} empty '
+                                f'fetches: {idle_interval}s'
+                            )
+
+        if transition_log:
+            c.log(transition_log)
 
         if new_count > 0:
             c.log(f'Fetched {new_count} new match(es)')
             _auto_session_start()
 
+    except cfn_scraper.CfnFetchError as e:
+        _record_poll_error(e, mock_mode, expected=True)
     except Exception as e:
-        error_msg = str(e)
-        interval = int(storage.get_config('poll_interval', '90'))
-        with _status_lock:
-            _status['last_error'] = error_msg
-            _status['error_count'] += 1
-            _status['consecutive_errors'] += 1
-            delay = min(interval * (2 ** _status['consecutive_errors']), _MAX_BACKOFF)
-            _status['next_retry_at'] = time.time() + delay
-        c.log(f'Poll error: {e}', exc_info=True)
-        c.log(f'Backing off: next retry in {delay}s')
-
-        # 認証エラーの場合、自動ログインを試行
-        if not mock_mode and ('403' in error_msg or 'cookie' in error_msg.lower()):
-            c.log('Poll: auth error detected, attempting auto-login...')
-            _try_auto_login()
+        _record_poll_error(e, mock_mode)
 
 
 def _check_auth_job():
@@ -191,6 +290,11 @@ def start_scheduler():
         _poll_job, 'interval', seconds=interval,
         id='cfn_poll', replace_existing=True
     )
+    with _status_lock:
+        _status['normal_interval'] = interval
+        _status['effective_interval'] = interval
+        _status['consecutive_empty_fetches'] = 0
+        _status['is_idle_slowed'] = False
     # 認証チェック: 10分ごと
     scheduler.add_job(
         _check_auth_job, 'interval', minutes=10,
@@ -215,18 +319,64 @@ def stop_scheduler():
 
 
 def update_poll_interval(seconds):
-    """ポーリング間隔を動的に変更し、次回起動時から反映"""
+    """通常ポーリング間隔を変更し、アイドル低速化を解除する。"""
     seconds = int(seconds)
-    scheduler.reschedule_job('cfn_poll', trigger='interval', seconds=seconds)
+    with _poll_schedule_lock:
+        if not _reschedule_poll_job(seconds):
+            c.log('Poll interval update deferred: poll job is not registered')
+            return False
+        with _status_lock:
+            _status['normal_interval'] = seconds
+            _status['effective_interval'] = seconds
+            _status['consecutive_empty_fetches'] = 0
+            _status['is_idle_slowed'] = False
     c.log(f'Poll interval updated: {seconds}s')
+    return True
+
+
+def restore_normal_polling():
+    """アイドル低速化だけを解除し、設定済みの通常間隔へ戻す。"""
+    interval = int(storage.get_config('poll_interval', '90'))
+    with _poll_schedule_lock:
+        if not _reschedule_poll_job(interval):
+            c.log('Polling restore deferred: poll job is not registered')
+            return False
+        with _status_lock:
+            _status['normal_interval'] = interval
+            _status['effective_interval'] = interval
+            _status['consecutive_empty_fetches'] = 0
+            _status['is_idle_slowed'] = False
+    c.log(f'Polling manually restored to normal interval: {interval}s')
+    return True
 
 
 def get_scheduler_status():
-    with _status_lock:
-        status = _status.copy()
-
-    job = scheduler.get_job('cfn_poll')
+    with _poll_schedule_lock:
+        with _status_lock:
+            status = _status.copy()
+        job = scheduler.get_job('cfn_poll')
     status['next_run'] = job.next_run_time.isoformat() if job and job.next_run_time else None
+
+    retry_at = status['next_retry_at']
+    status['poll_mode'] = (
+        'error' if status['consecutive_errors'] > 0
+        else 'idle' if status['is_idle_slowed']
+        else 'normal'
+    )
+
+    next_attempt_ts = None
+    if job and job.next_run_time:
+        next_attempt_ts = job.next_run_time.timestamp()
+        if retry_at is not None and retry_at > next_attempt_ts:
+            interval = max(int(status['effective_interval']), 1)
+            skipped_slots = math.ceil(
+                (retry_at - next_attempt_ts) / interval
+            )
+            next_attempt_ts += skipped_slots * interval
+    status['next_attempt'] = (
+        datetime.fromtimestamp(next_attempt_ts, tz=c.JST).isoformat()
+        if next_attempt_ts is not None else None
+    )
 
     # Cookie 経過時間を計算
     saved_at = storage.get_config('cfn_cookie_saved_at')

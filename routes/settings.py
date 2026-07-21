@@ -69,6 +69,12 @@ def save_poll_interval():
     return redirect(url_for('settings.index', msg='poll_ok'))
 
 
+@bp.route('/settings/polling/normal', methods=['POST'])
+def polling_normal():
+    scheduler.restore_normal_polling()
+    return redirect(url_for('dashboard.index'))
+
+
 @bp.route('/settings/toggle_mock', methods=['POST'])
 def toggle_mock():
     current = storage.get_config('mock_mode', 'true')
@@ -76,6 +82,8 @@ def toggle_mock():
     storage.set_config('mock_mode', new_value)
     if new_value == 'false':
         storage.delete_mock_matches()
+    else:
+        scheduler.restore_normal_polling()
     return redirect(url_for('settings.index'))
 
 

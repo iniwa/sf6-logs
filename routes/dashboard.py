@@ -6,7 +6,6 @@ from flask import Blueprint, render_template, request
 import config as c
 from services import storage, stats
 from services import scheduler as sched
-from services import cfn_auth
 
 bp = Blueprint('dashboard', __name__)
 
@@ -80,7 +79,6 @@ def index():
         matches = [m for m in matches if m['my_character'] == selected_char]
 
     status = sched.get_scheduler_status()
-    auth = cfn_auth.is_authenticated()
     char_stats = stats.get_character_stats(since_dt=since_dt, battle_type=bt,
                                            last_n=last_n)
     opp_stats = stats.get_opponent_stats(since_dt=since_dt, battle_type=bt,
@@ -94,7 +92,7 @@ def index():
 
     return render_template('dashboard.html',
                            matches=matches, today=period_stats,
-                           status=status, auth=auth,
+                           status=status,
                            char_stats=char_stats,
                            opp_stats=opp_stats,
                            lp_history=lp_history,
