@@ -4,7 +4,7 @@
 
 This is the Codex-side working agreement for `sf6-logs`. It records durable
 product and data constraints, model and handoff policy, review rules, and
-documentation lifecycle. `CLAUDE.md` contains Claude Code execution rules.
+documentation lifecycle. `CLAUDE.md` contains compatibility boundaries for Claude-oriented tooling.
 
 ## Project
 
@@ -34,31 +34,18 @@ instruction to change project policy may revise a durable project rule; other
 task instructions and approved scopes may narrow durable rules but may not
 weaken them. Report unresolved conflicts instead of guessing.
 
+- Prefer the smallest correct change and reuse existing capabilities before adding dependencies or parallel policy.
+- Approvals and completion require concise, evidence-backed scope, verification, and residual-risk/blocked-check reporting.
+
 ## Model and Role Policy
 
-- Use GPT-5.3-Codex-Spark (`gpt-5.3-codex-spark`) proactively, when available,
-  for low-risk, well-scoped, independently verifiable supporting work that
-  requires no material design judgment or source-code implementation.
-- GPT-5.6 Terra (`gpt-5.6-terra`) or Sol (`gpt-5.6-sol`) owns requirements and
-  design. Whenever Terra is used, set its reasoning level to `high`. Prefer Sol
-  for substantial ambiguity, risk, or cross-boundary reasoning.
-- Run every Claude Code task with `--permission-mode auto`.
-- After design is fixed, delegate source-code implementation first to Claude
-  Code Sonnet at effort medium from the repository root:
-  `claude -p --model sonnet --effort medium --permission-mode auto "<handoff/task prompt>"`.
-- Only when Sonnet is unavailable because of usage limits or service
-  availability, use GPT-5.6 Luna (`gpt-5.6-luna`) with reasoning level `max`
-  for the same implementation slice.
-- Implementation failure, failed verification, or a design question is not
-  model unavailability; return it to Codex instead of switching models.
-- Apply this policy to every coordinating Codex model and its subagents. Do not
-  create coordinator-specific exceptions unless the user explicitly changes
-  the policy.
-- Claude Code subagents are optional and limited to clearly parallel mechanical
-  work inside the current task scope. They inherit its constraints.
-- Codex may keep requirements, design, review, read-only investigation,
-  synthesis, and small documentation-consistency changes in one context.
-
+- Before implementation, classify the initial route from acceptance evidence: `small-primary` for small or transfer-negative work, `bounded` for settled multi-step work with one verifiable writer, `adaptive` when unresolved native, platform, runtime, or cross-subsystem behavior is material, or `non-implementation` for analysis, design, review, or operations. This classification does not force delegation; reclassify only after a material scope change or contract reset.
+- The runtime-selected primary owns requirements, design, synthesis, and approval-sensitive decisions.
+- Use native Codex roles: `bounded_implementer` is the cohesive default for settled work; choose `adaptive_implementer` directly when acceptance depends on unresolved native, platform, or cross-layer lifecycle behavior.
+- Use `bounded_explorer` only for genuinely independent read-only questions and `bounded_reviewer` only when concrete correctness, security, compatibility, or verification risk warrants it. One active writer owns overlapping files or behavior.
+- The writer's stable self-review gate is a dispatch barrier. If the writer changes the candidate after review starts, acceptance must be re-established; request a fresh final review only when material risk still warrants it. A second correction round, or two blocked/partial returns, requires a contract reset before continuing. If a selected role is unavailable or unobservable, use an observable equivalent or keep the work in the primary context.
+- Name the concrete material risk in any reviewer handoff. Use a fresh task boundary for an independent phase with its own acceptance and verification; reintegrate delegated work from the stable diff and evidence instead of repeating its discovery.
+- Claude Code is not an approved route unless an explicit policy change says so.
 ## Durable Project Rules
 
 - Preserve the existing dashboard, report, settings, API, SSE, and OBS overlay
@@ -115,8 +102,6 @@ weaken them. Report unresolved conflicts instead of guessing.
   interrupted even when its process exits normally. Record usable partial
   results, verification, remaining scope, and the resume condition; narrow an
   over-broad handoff before rerunning it.
-- Sonnet implements only the approved slice. Luna at reasoning level `max` may
-  implement the same slice only under the model-unavailability condition above.
 - The implementer returns design questions to Codex. Codex reviews the report
   and diff before preparing another slice.
 - Keep active or blocked handoffs in `docs/handoffs/`. Move a handoff to

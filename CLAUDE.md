@@ -2,8 +2,7 @@
 
 ## Purpose
 
-This file defines Claude Code execution rules for `sf6-logs`. `AGENTS.md` owns
-design intent, model selection, handoff policy, and Codex review.
+This file defines compatibility boundaries for Claude-oriented tooling in `sf6-logs`. `AGENTS.md` owns design intent, runtime-selected role policy, handoff policy, and review gates.
 
 ## Project Context
 
@@ -28,8 +27,9 @@ design intent, model selection, handoff policy, and Codex review.
 - If instructions conflict or a required choice is unresolved, stop and return
   the conflict or design question to Codex instead of guessing.
 
-## Execution Rules
+## Compatibility Boundary
 
+- If a Claude-compatible reader is used, preserve the durable project and safety constraints in `AGENTS.md`; do not infer a mandatory Claude, Sonnet, Luna, or fixed-primary route.
 - If the user writes in Japanese, respond in Japanese. Preserve the repository's
   established language for documentation, comments, identifiers, logs, and
   user-facing text unless the task changes it.
