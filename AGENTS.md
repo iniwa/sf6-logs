@@ -40,7 +40,7 @@ weaken them. Report unresolved conflicts instead of guessing.
 ## Model and Role Policy
 
 - Before implementation, classify the initial route from acceptance evidence: `small-primary` for small or transfer-negative work, `bounded` for settled multi-step work with one verifiable writer, `adaptive` when unresolved native, platform, runtime, or cross-subsystem behavior is material, or `non-implementation` for analysis, design, review, or operations. This classification does not force delegation; reclassify only after a material scope change or contract reset.
-- The runtime-selected primary owns requirements, design, synthesis, and approval-sensitive decisions.
+- Use GPT-5.6 Sol as the preferred main worker; the user's actual runtime model and reasoning choice remains authoritative. Sol owns intent, design, approval boundaries, integration, and user communication and can directly finish small or transfer-negative work. Use configured Luna roles (`bounded_explorer`/`bounded_implementer`) for bounded work and Terra roles (`adaptive_implementer`/`bounded_reviewer`) for adaptive implementation or risk-justified review; do not force delegation or pin the main reasoning level in project instructions.
 - Use native Codex roles: `bounded_implementer` is the cohesive default for settled work; choose `adaptive_implementer` directly when acceptance depends on unresolved native, platform, or cross-layer lifecycle behavior.
 - Use `bounded_explorer` only for genuinely independent read-only questions and `bounded_reviewer` only when concrete correctness, security, compatibility, or verification risk warrants it. One active writer owns overlapping files or behavior.
 - The writer's stable self-review gate is a dispatch barrier. If the writer changes the candidate after review starts, acceptance must be re-established; request a fresh final review only when material risk still warrants it. A second correction round, or two blocked/partial returns, requires a contract reset before continuing. If a selected role is unavailable or unobservable, use an observable equivalent or keep the work in the primary context.
@@ -84,7 +84,7 @@ weaken them. Report unresolved conflicts instead of guessing.
   fixtures, logs, API responses, reports, or external tools.
 - Do not add dependencies or change build tooling, packaging, CI/CD,
   deployment, or external exposure outside the approved task scope.
-- Do not commit, push, publish images, or deploy unless explicitly requested.
+- Do not commit, push, or publish images unless explicitly requested. A bounded reversible implementation/fix request includes deployment/application and any needed restart through the verified known procedure to the established user-controlled target; production data, volumes, credentials, external exposure, image publication, and new targets remain separately gated.
 
 ## Handoff Workflow
 
@@ -126,3 +126,10 @@ Keep `AGENTS.md` short and current. Put decision context in `docs/decisions/`,
 reusable technical notes under `docs/`, code-improvement candidates in
 `docs/improvements.md`, feature ideas in `issues.md`, active or blocked
 handoffs in `docs/handoffs/`, and completed handoffs in its `archive/`.
+
+## Personal-Use Iteration
+
+- Treat routine changes as personal-use iteration by default unless a verified project requirement or protected public-content, rights, human-approval, or data gate is stronger. Start with the smallest useful change and, when useful, a brief source or normal-path check; when it plausibly works, apply it through the verified known procedure to the established user-controlled target, including any needed restart, smoke normal use, and fix errors observed there.
+- This allowance covers bounded reversible work only. Preserve gates for credentials, authentication, permissions, external exposure, live data, SQLite migrations, production volumes, infrastructure or cost, publication or release, and other project-specific protected behavior. Do not require speculative edge-case matrices, defensive hardening, or a full suite merely to permit ordinary iteration.
+- If a target, check, or required approval is unavailable, distinguish source readiness from verified operation. Only important REQUIRED deferred checks belong in the existing issue or ledger, with their verification, approval, and resume conditions; optional or unnecessary checks do not create issues. Reconcile any operational checklist with the exact approval scope and conditions without weakening permanent prohibitions. For documentation-only changes, use the smallest relevant reference, fence, format, or sample check; do not invent an application runtime.
+- If a project-required safety or approval review must precede application, return the stable source or diff with applicable pre-application checks first; runtime application and smoke are not run, passed, or complete until that gate clears. Ordinary work does not acquire review solely because optional checks were omitted.
