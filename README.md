@@ -22,6 +22,7 @@ Street Fighter 6 の対戦データを [CFN (Buckler's Boot Camp)](https://www.s
 - **バトルモードフィルタ** -- Ranked / Casual / Battle Hub / Custom
 - **キャラフィルタ** -- 使用キャラで絞り込み
 - **テーマ切替** -- Dark / Light / SF6
+- **直近のエラー履歴** -- Scheduler の下に直近20件を表示。取得成功後も残り、10秒ごとに表示を更新（アプリ再起動で消去）
 
 ### Report (`/report`)
 
@@ -194,7 +195,7 @@ sf6-logs/
 - **設計 → 実装の分担**: Codex が設計判断と handoff (`docs/handoffs/YYYY-MM-DD-*.md`) を作成し、`claude -p --model sonnet --effort medium --permission-mode auto "<handoff/task prompt>"` で委譲した Claude Code (Sonnet) が handoff に沿って実装・検証する。詳細は `AGENTS.md` / `CLAUDE.md` を参照。
 - **改善候補**: コード品質・安定性の改善項目は `docs/improvements.md` のチェックリストで管理する。
 - **機能追加アイデア**: `issues.md` で管理する。
-- **検証**: 自動テスト / lint は未整備。最低限 `python app.py` が起動して http://localhost:8510 が応答することを確認する。
+- **検証**: `python -m pytest` と `git diff --check`。`app.py` の起動時にはスケジューラも開始するため、起動確認は本番とは別のデータ・認証設定で行う。
 
 ## License
 

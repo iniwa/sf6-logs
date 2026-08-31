@@ -5,7 +5,7 @@ import requests
 from bs4 import BeautifulSoup
 
 import config as c
-from services import storage
+from services import storage, error_history
 
 class TwoFactorRequired(Exception):
     """2FA が有効なアカウントで自動ログイン不可"""
@@ -50,6 +50,7 @@ def get_build_id(session=None, force_refresh=False):
     if session is None:
         session = get_session()
 
+    resp = None
     try:
         resp = session.get(BUCKLER_TOP, timeout=15)
         resp.raise_for_status()
@@ -57,20 +58,34 @@ def get_build_id(session=None, force_refresh=False):
         soup = BeautifulSoup(resp.text, 'html.parser')
         next_data = soup.find('script', id='__NEXT_DATA__')
         if not next_data:
+            error_history.record(
+                'build_id', kind='response',
+                status_code=getattr(resp, 'status_code', None),
+            )
             c.log('BuildID: __NEXT_DATA__ not found')
             return None
 
         data = json.loads(next_data.string)
         build_id = data.get('buildId')
+        if not build_id:
+            error_history.record(
+                'build_id', kind='response',
+                status_code=getattr(resp, 'status_code', None),
+            )
         if build_id:
             _build_id_cache['value'] = build_id
             c.log(f'BuildID: {build_id}')
         return build_id
 
     except requests.RequestException as e:
+        error_history.record('build_id', e)
         c.log(f'BuildID request error: {type(e).__name__}')
         return None
     except Exception as e:
+        error_history.record(
+            'build_id', e, kind='parse',
+            status_code=getattr(resp, 'status_code', None),
+        )
         c.log(f'BuildID fetch error: {e}', exc_info=True)
         return None
 
@@ -374,10 +389,15 @@ def auto_login(email=None, password=None):
 
     try:
         return _requests_login(email, password)
-    except TwoFactorRequired:
+    except TwoFactorRequired as req_err:
         raise  # 2FA はフォールバックしない
     except Exception as req_err:
-        if 'invalid email or password' in str(req_err).lower():
+        invalid_credentials = 'invalid email or password' in str(req_err).lower()
+        error_history.record(
+            'auto_login_requests', req_err,
+            kind='auth' if invalid_credentials else None,
+        )
+        if invalid_credentials:
             raise  # 認証情報エラーはフォールバックしない
         c.log(f'Requests login failed: {req_err}, trying Playwright fallback...', exc_info=True)
         if not is_playwright_available():
