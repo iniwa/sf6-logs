@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for
 
 import config as c
-from services import storage, cfn_auth, scheduler
+from services import storage, cfn_auth, scheduler, error_history
 
 bp = Blueprint('settings', __name__)
 
@@ -51,6 +51,7 @@ def test_login():
         cfn_auth.auto_login()
         return redirect(url_for('settings.index', msg='login_ok'))
     except Exception as e:
+        error_history.record('login_test', e, kind='two_factor' if isinstance(e, cfn_auth.TwoFactorRequired) else None)
         c.log(f'Auto-login test failed: {e}', exc_info=True)
         return redirect(url_for('settings.index', msg='login_fail', detail=str(e)))
 

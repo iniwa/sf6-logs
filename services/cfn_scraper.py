@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import requests
 
 import config as c
-from services import storage
+from services import storage, error_history
 from services.cfn_auth import get_session, get_build_id, build_api_url
 
 
@@ -183,7 +183,8 @@ def _parse_battle_log(data, my_short_id):
             if match:
                 matches.append(match)
         except Exception as e:
-            replay_id = replay.get('replay_id', 'unknown')
+            error_history.record('replay_parse', e, kind='parse')
+            replay_id = replay.get('replay_id', 'unknown') if isinstance(replay, dict) else 'unknown'
             c.log(f'Failed to parse replay {replay_id}: {e}', exc_info=True)
 
     # マッチは新しい順。古いマッチの before → 新しいマッチの after として連鎖

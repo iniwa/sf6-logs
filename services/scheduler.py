@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 
 import config as c
-from services import storage, cfn_auth, cfn_scraper
+from services import storage, cfn_auth, cfn_scraper, error_history
 
 _MAX_BACKOFF = 1800  # 30 minutes
 _MIN_ERROR_INTERVAL = 90
@@ -47,11 +47,13 @@ def _try_auto_login():
             return True
         return False
     except cfn_auth.TwoFactorRequired as e:
+        error_history.record('auto_login', e, kind='two_factor')
         c.log(f'Auto-login blocked: {e}')
         with _status_lock:
             _status['auto_login_last'] = f'2FA required: {e}'
         return False
     except Exception as e:
+        error_history.record('auto_login', e)
         c.log(f'Auto-login failed: {e}', exc_info=True)
         with _status_lock:
             _status['auto_login_last'] = f'failed: {e}'
@@ -78,6 +80,11 @@ def _record_poll_error(error, mock_mode, expected=False):
     kind = getattr(error, 'kind', 'unexpected')
     status_code = getattr(error, 'status_code', None)
     retry_after = getattr(error, 'retry_after', None)
+    error_history.record(
+        'poll', error,
+        kind=getattr(error, 'kind', None),
+        status_code=status_code,
+    )
     label = kind if status_code is None else f'{kind}/{status_code}'
     error_msg = f'{label}: {error}'
     normal_interval = int(storage.get_config('poll_interval', '90'))
@@ -204,6 +211,14 @@ def _poll_job():
 
 
 def _check_auth_job():
+    try:
+        return _check_auth_job_impl()
+    except Exception as e:
+        error_history.record('auth_check', e)
+        raise
+
+
+def _check_auth_job_impl():
     """定期的に Cookie の有効性をチェック"""
     mock_mode = storage.get_config('mock_mode', 'true') == 'true'
     if mock_mode:
@@ -388,5 +403,7 @@ def get_scheduler_status():
     # 自動ログイン設定有無
     email = storage.get_config('capcom_email')
     status['auto_login_configured'] = bool(email)
+    status['recent_errors'] = error_history.get_recent_errors()
+    status['recent_errors_limit'] = error_history.MAX_RECENT_ERRORS
 
     return status
