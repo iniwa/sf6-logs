@@ -67,3 +67,9 @@ revision `b01833a1b51ad2b0ec0c3296145b5f7a9212d3ef`. Deployment and follow-up
 runtime checks completed on 2026-08-31; see the
 [archived operations record](../handoffs/archive/2026-08-31-recent-error-history-deployment.md).
 The existing production data mount and deployment configuration were retained.
+
+On 2026-09-03, the user approved moving the card from Dashboard to the bottom
+of Settings and applying revision
+`e5584d690a6cf4be1f7b4d4af9d3b8f1c8e14397`. The completed publication and
+runtime checks are recorded in the
+[archived placement deployment record](../handoffs/archive/2026-09-03-move-error-history-to-settings-deployment.md).

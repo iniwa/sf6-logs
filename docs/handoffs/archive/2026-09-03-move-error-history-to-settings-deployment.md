@@ -5,7 +5,7 @@
 - Route: `non-implementation` (release and operations).
 - The source change is stable and the user explicitly approved committing,
   pushing, image publication, and application to the established production
-  target. Production application is in progress.
+  target. Production application is complete.
 - Move only the `直近のエラー履歴` card from Dashboard to the bottom of
   Settings. Keep collection, retention, safe fields, the cached status API,
   and the existing ten-second UI refresh unchanged.
@@ -32,12 +32,22 @@
 - The unrelated existing README workflow edit must remain unstaged and outside
   this release.
 
-## Remaining work
+## Completion
 
-1. Publish the scoped implementation and documentation commit.
-2. Verify the existing amd64/arm64 image publication for that exact revision.
-3. Apply the immutable arm64 image through the verified production procedure.
-4. Confirm the running revision, unchanged runtime contract, healthy routes,
-   history API, and Settings-only card location without reading credentials or
-   match records.
-5. Record the result and archive this handoff only after follow-up succeeds.
+- Published revision `e5584d690a6cf4be1f7b4d4af9d3b8f1c8e14397` through the
+  existing [Docker Build and Push run](https://github.com/iniwa/sf6-logs/actions/runs/33700331254).
+  The published manifest contains both `linux/amd64` and `linux/arm64`.
+- Applied the immutable arm64 image to the sole existing service using the
+  stored Portainer definition. Follow-up confirmed the intended revision, an
+  unchanged runtime contract and stack fingerprint, and restart count zero.
+- Dashboard, Settings, and `/api/status` returned HTTP 200; the scheduler was
+  running and the safe history API remained available. The running image has
+  the history card only in the Settings template, not Dashboard.
+- The application restart cleared the four process-local history entries as
+  documented. No CFN failure was induced and no fetch was forced.
+- Browser discovery returned no available browser, so visual inspection is not
+  claimed. Route tests, served-template checks, and HTTP/API checks establish
+  the requested placement without reading credentials, match records, or raw
+  error text.
+- Required publication, application, rollback readiness, and follow-up checks
+  are complete. This handoff is archived.
