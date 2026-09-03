@@ -22,7 +22,6 @@ Street Fighter 6 の対戦データを [CFN (Buckler's Boot Camp)](https://www.s
 - **バトルモードフィルタ** -- Ranked / Casual / Battle Hub / Custom
 - **キャラフィルタ** -- 使用キャラで絞り込み
 - **テーマ切替** -- Dark / Light / SF6
-- **直近のエラー履歴** -- Scheduler の下に直近20件を表示。取得成功後も残り、10秒ごとに表示を更新（アプリ再起動で消去）
 
 ### Report (`/report`)
 
@@ -73,6 +72,7 @@ SSE (Server-Sent Events) でリアルタイム通知。各通知は Overlay Sett
 ### Settings
 
 - **CFN Settings** (`/settings`) -- Buckler's Boot Camp の認証情報設定、Mock Mode 切替
+- **直近のエラー履歴** -- Settings 下部に直近20件を表示。取得成功後も残り、10秒ごとに表示を更新（アプリ再起動で消去）
 - **Overlay Settings** (`/overlay-settings`) -- Overlay URL Builder、ポップアップ通知設定、セッション管理、OBS 推奨解像度
 
 ### Session Management

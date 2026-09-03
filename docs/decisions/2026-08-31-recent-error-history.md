@@ -23,8 +23,8 @@ reported intermittent failures is not yet established.
   exception class names, and validated HTTP status codes. Do not retain
   exception objects/messages, tracebacks, request/response content, or account
   and match data. Do not reuse the ordinary log buffer as the history source.
-- Expose additive cached fields in the scheduler status and display them just
-  below the Dashboard Scheduler row. Reuse its existing ten-second status
+- Expose additive cached fields in the scheduler status and display them at the
+  bottom of Settings. Reuse the existing ten-second status
   polling, with escaped initial HTML and text-only dynamic rendering.
 
 ## Boundaries and verification

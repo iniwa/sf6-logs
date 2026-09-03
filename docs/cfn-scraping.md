@@ -146,7 +146,7 @@ Path: /6/buckler/_next/data/{buildId}/en/{resource}.json
 
 ## 直近のエラー履歴
 
-- Dashboard の Scheduler / Activity Calendar のすぐ下に、直近20件のエラーを
+- Settings ページの下部に、直近20件のエラーを
   新しい順に表示する。通常の `Last error` が次の取得成功で消えても、履歴は残る。
 - 戦績取得、BuildID 取得、定期認証確認、自動ログイン（通常方式の失敗後に
   代替方式で成功した場合も含む）、ログインテスト、個々の戦績の解析を記録する。

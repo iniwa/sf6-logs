@@ -134,26 +134,6 @@
     </div>
 </div>
 
-<div class="card" id="recent-errors-card" style="margin-bottom:16px;">
-    <h2>直近のエラー履歴</h2>
-    <p style="font-size:0.8rem;color:var(--text-dim);margin-top:4px;">
-        直近{{ status.recent_errors_limit }}件。過去のエラーであり、現在は復旧している場合があります。取得が成功しても残り、アプリ再起動時に消去されます。表示は10秒ごとに更新されます。
-    </p>
-    <div id="recent-errors-list" style="max-height:360px;overflow:auto;">
-        {% if status.recent_errors %}
-        <table style="font-size:0.8rem;width:100%;">
-            <thead><tr><th>日時</th><th>発生箇所</th><th>内容</th><th>例外</th><th>HTTP</th></tr></thead>
-            <tbody>
-            {% for error in status.recent_errors %}
-            <tr><td>{{ error.timestamp[:19].replace('T', ' ') }} JST</td><td>{{ error.source_label }}</td><td>{{ error.summary }} ({{ error.kind }})</td><td>{{ error.exception_type or '-' }}</td><td>{{ error.status_code or '-' }}</td></tr>
-            {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p data-recent-errors-empty style="color:var(--text-dim);padding:12px 0;">エラー履歴はありません。</p>
-        {% endif %}
-    </div>
-</div>
 {# ── Summary ── #}
 <div class="summary-row">
     <div class="stat-box">

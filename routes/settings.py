@@ -12,7 +12,8 @@ POLL_INTERVAL_MAX = 90
 @bp.route('/settings')
 def index():
     conf = storage.load_all_config()
-    return render_template('settings.html', config=conf)
+    status = scheduler.get_scheduler_status()
+    return render_template('settings.html', config=conf, status=status)
 
 
 @bp.route('/overlay-settings')

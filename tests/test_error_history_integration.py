@@ -304,6 +304,10 @@ def web_app(monkeypatch):
         monkeypatch.setattr(dashboard.stats, name, lambda *args, **kwargs: [])
     monkeypatch.setattr(storage, 'get_matches', lambda *args, **kwargs: [])
     monkeypatch.setattr(storage, 'get_matches_since', lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        storage, 'load_all_config',
+        lambda: {'mock_mode': 'false', 'poll_interval': '90'},
+    )
     return app
 
 
@@ -342,16 +346,19 @@ def test_api_history_is_safe_additive_and_cached(monkeypatch, web_app):
     assert error_history.get_recent_errors() == [event]
 
 
-def test_dashboard_empty_and_populated_history(monkeypatch, web_app):
+def test_history_moves_from_dashboard_to_settings(monkeypatch, web_app):
     client = web_app.test_client()
-    empty = client.get('/').get_data(as_text=True)
+    dashboard = client.get('/').get_data(as_text=True)
+    empty = client.get('/settings').get_data(as_text=True)
+    assert '直近のエラー履歴' not in dashboard
+    assert 'recent-errors-card' not in dashboard
     assert '直近のエラー履歴' in empty
     assert 'エラー履歴はありません。' in empty
     assert '直近20件' in empty
     assert 'アプリ再起動時に消去' in empty
     monkeypatch.setattr(c, 'get_now', lambda: datetime(2026, 8, 31, 9, 31, 42, tzinfo=c.JST))
     error_history.record('poll', cfn_scraper.CfnFetchError('SYNTHETIC_PRIVATE_MESSAGE', kind='rate_limit', status_code=429))
-    populated = client.get('/').get_data(as_text=True)
+    populated = client.get('/settings').get_data(as_text=True)
     assert '2026-08-31 09:31:42 JST' in populated
     assert 'リクエスト制限 (rate_limit)' in populated
     assert '<td>429</td>' in populated
@@ -363,7 +370,7 @@ def test_initial_history_html_escapes_all_event_text(monkeypatch, web_app):
     event = error_history.record('poll', RuntimeError('synthetic'))
     event.update({'source_label': '<img src=x>', 'summary': '<script>bad()</script>', 'exception_type': '<b>type</b>'})
     monkeypatch.setattr(error_history, 'get_recent_errors', lambda: [event])
-    html = web_app.test_client().get('/').get_data(as_text=True)
+    html = web_app.test_client().get('/settings').get_data(as_text=True)
     assert '&lt;img src=x&gt;' in html
     assert '&lt;script&gt;bad()&lt;/script&gt;' in html
     assert '&lt;b&gt;type&lt;/b&gt;' in html
