@@ -192,7 +192,7 @@ sf6-logs/
 
 ## Development Workflow
 
-- **設計 → 実装の分担**: Codex が設計判断と handoff (`docs/handoffs/YYYY-MM-DD-*.md`) を作成し、`claude -p --model sonnet --effort medium --permission-mode auto "<handoff/task prompt>"` で委譲した Claude Code (Sonnet) が handoff に沿って実装・検証する。詳細は `AGENTS.md` / `CLAUDE.md` を参照。
+- **設計 → 実装の分担**: runtimeで選択されたprimaryが設計判断と handoff (`docs/handoffs/YYYY-MM-DD-*.md`) を担当し、実装・検証は `AGENTS.md` のnative Codex role policyと互換境界に従う。詳細は `AGENTS.md` / `CLAUDE.md` を参照。
 - **改善候補**: コード品質・安定性の改善項目は `docs/improvements.md` のチェックリストで管理する。
 - **機能追加アイデア**: `issues.md` で管理する。
 - **検証**: `python -m pytest` と `git diff --check`。`app.py` の起動時にはスケジューラも開始するため、起動確認は本番とは別のデータ・認証設定で行う。
