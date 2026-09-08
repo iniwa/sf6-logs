@@ -45,3 +45,6 @@ build/
 
 # Logs
 *.log
+
+# Local agent metadata
+.codex/
