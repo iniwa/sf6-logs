@@ -52,7 +52,7 @@
     <p style="color: var(--text-dim);">
         CFN の Cookie が無効です。
         {% if status.auto_login_configured %}
-            自動ログインを試行中...
+            自動ログインが設定されています。失敗が続く場合は <a href="/settings">Settings</a> でCookieを更新してください。
             {% if status.auto_login_last %}
             <br><small>Last attempt: {{ status.auto_login_last }}</small>
             {% endif %}

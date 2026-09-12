@@ -31,6 +31,8 @@ def save_cfn():
         cfn_auth.save_cookie(cookie)
     if user_id:
         storage.set_config('cfn_user_id', user_id.strip())
+    if cookie:
+        scheduler.resume_after_cookie_update()
     return redirect(url_for('settings.index'))
 
 
@@ -50,6 +52,7 @@ def test_login():
     """自動ログインをテスト実行"""
     try:
         cfn_auth.auto_login()
+        scheduler.resume_after_cookie_update()
         return redirect(url_for('settings.index', msg='login_ok'))
     except Exception as e:
         error_history.record('login_test', e, kind='two_factor' if isinstance(e, cfn_auth.TwoFactorRequired) else None)

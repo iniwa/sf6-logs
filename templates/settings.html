@@ -41,8 +41,17 @@
             </small>
             {% endif %}
         </div>
-        <button type="submit" class="btn btn-primary">Save</button>
+        <button type="submit" class="btn btn-primary">保存して取得再開</button>
     </form>
+    <details style="margin-top: 12px;">
+        <summary>403・自動ログイン失敗時の復旧手順</summary>
+        <ol>
+            <li>PCのブラウザでBuckler's Boot Campにログインし、自分の戦績を開きます。</li>
+            <li>開発者ツールのNetworkを開いて再読み込みし、BucklerへのリクエストのRequest HeadersからCookieの値をコピーします。</li>
+            <li>上のCFN Cookieに貼り付けて保存します。Cookieはパスワードと同様に扱い、チャットなどには共有しないでください。</li>
+        </ol>
+        <p>認証エラーで待機中の場合、保存後は通常90秒程度で再試行します。取得成功までは現在のエラー表示が残り、過去のエラー履歴は成功後も残ります。</p>
+    </details>
 </div>
 
 <div class="card">
@@ -61,7 +70,7 @@
             <input type="password" id="capcom_password" name="capcom_password"
                    placeholder="{{ '********' if config.capcom_password else 'CAPCOM ID のパスワード' }}">
             <small style="color: var(--text-dim); font-size: 0.75rem;">
-                ローカル DB に保存されます。2FA 有効の場合は自動ログインできません（Playwright インストール時はブラウザ経由で試行します）。
+                ローカル DB に保存されます。2FAや対話操作が必要な場合は、上の手順でCookieを手動更新してください。
             </small>
         </div>
         <div style="display: flex; gap: 8px;">

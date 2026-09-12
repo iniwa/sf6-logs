@@ -40,6 +40,7 @@ def _try_auto_login():
     try:
         result = cfn_auth.refresh_cookie()
         if result:
+            resume_after_cookie_update()
             with _status_lock:
                 _status['auto_login_last'] = f'success at {c.get_now().isoformat()}'
                 _status['auth_ok'] = True
@@ -58,6 +59,29 @@ def _try_auto_login():
         with _status_lock:
             _status['auto_login_last'] = f'failed: {e}'
         return False
+
+
+def resume_after_cookie_update():
+    """Probe new credentials at a paced interval, preserving non-auth backoff."""
+    if storage.get_config('mock_mode', 'true') == 'true':
+        return False
+    interval = int(storage.get_config('poll_interval', '90'))
+    with _poll_schedule_lock:
+        with _status_lock:
+            error = _status['last_error'] or ''
+            if not error.startswith(('auth:', 'auth/')):
+                return False
+            # Cookie replacement is not proof of recovery. Keep errors/history
+            # until a real fetch succeeds, and never issue an immediate request.
+            if not _reschedule_poll_job(interval):
+                return False
+            _status['next_retry_at'] = time.time() + max(interval, _MIN_ERROR_INTERVAL)
+            _status['normal_interval'] = interval
+            _status['effective_interval'] = interval
+            _status['consecutive_empty_fetches'] = 0
+            _status['is_idle_slowed'] = False
+    c.log('CFN Cookie updated: scheduled authentication retry')
+    return True
 
 
 def _reschedule_poll_job(seconds):

@@ -1,6 +1,8 @@
 import json
 import re
 import base64
+import threading
+from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 
@@ -12,6 +14,28 @@ class TwoFactorRequired(Exception):
     pass
 
 
+class LoginError(Exception):
+    """Safe login diagnostics without OAuth URLs or response content."""
+
+    def __init__(self, message, *, kind='unexpected', status_code=None):
+        super().__init__(message)
+        self.kind = kind
+        self.status_code = status_code
+
+
+def _is_buckler_url(url):
+    parsed = urlparse(url)
+    return (parsed.scheme == 'https'
+            and parsed.hostname == 'www.streetfighter.com'
+            and (parsed.path == '/6/buckler' or parsed.path.startswith('/6/buckler/'))
+            and '/auth/' not in parsed.path)
+
+
+def _is_buckler_cookie(domain):
+    domain = (domain or '').lstrip('.')
+    return domain == 'streetfighter.com' or domain.endswith('.streetfighter.com')
+
+
 BUCKLER_BASE = 'https://www.streetfighter.com'
 BUCKLER_TOP = f'{BUCKLER_BASE}/6/buckler'
 AUTH0_DOMAIN = 'auth.cid.capcom.com'
@@ -19,6 +43,7 @@ USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 
 # BuildID キャッシュ
 _build_id_cache = {'value': None}
+_login_lock = threading.Lock()
 
 
 def save_cookie(cookie_string):
@@ -180,25 +205,23 @@ def _requests_login(email, password):
             parsed = urlparse(resp.url)
             location = f'{parsed.scheme}://{parsed.netloc}{location}'
         redirect_chain.append(location)
-        c.log(f'Auto-login: redirect → {location}')
+        c.log(f'Auto-login: redirect step {len(redirect_chain)}')
         resp = session.get(location, timeout=15, allow_redirects=False)
 
-    chain_str = ' → '.join(redirect_chain) if redirect_chain else '(no redirects)'
-
     if resp.status_code != 200:
-        raise Exception(
-            f'Auth page not reachable (status={resp.status_code}, url={resp.url})\n'
-            f'Redirect chain: {chain_str}'
+        raise LoginError(
+            f'CAPCOM認証ページにアクセスできません (HTTP {resp.status_code})。'
+            'パスワード送信前の失敗です。',
+            kind='auth' if resp.status_code in (401, 403) else 'response',
+            status_code=resp.status_code,
         )
 
     # atob('...') から Base64 エンコードされた設定を抽出
     # Auth0 Classic Universal Login ページに埋め込まれている
     match = re.search(r"atob\('([^']+)'\)", resp.text)
     if not match:
-        raise Exception(
-            f'Auth config not found in login page '
-            f'(final url: {resp.url})\n'
-            f'Redirect chain: {chain_str}'
+        raise LoginError(
+            'CAPCOM認証ページのログイン設定を読み取れません。', kind='parse',
         )
 
     auth_config = json.loads(base64.b64decode(match.group(1)).decode('utf-8'))
@@ -261,8 +284,7 @@ def _requests_login(email, password):
         if name:
             form_data[name] = inp.get('value', '')
 
-    c.log(f'Auto-login: callback action={action_url}')
-    c.log(f'Auto-login: callback form fields: {list(form_data.keys())}')
+    c.log('Auto-login: submitting callback')
 
     # Content-Type をフォーム送信に戻す
     session.headers.pop('Content-Type', None)
@@ -277,13 +299,14 @@ def _requests_login(email, password):
         timeout=30,
         allow_redirects=True,
     )
-    c.log(f'Auto-login: callback final url={callback_resp.url}, status={callback_resp.status_code}')
-    c.log(f'Auto-login: callback redirect history: {[r.url for r in callback_resp.history]}')
+    if callback_resp.status_code != 200 or not _is_buckler_url(callback_resp.url):
+        raise LoginError('Bucklerへのログイン完了を確認できません。', kind='auth',
+                         status_code=callback_resp.status_code)
 
     # Cookie を抽出（streetfighter.com ドメインのもの）
     buckler_cookies = []
     for cookie in session.cookies:
-        if 'streetfighter.com' in (cookie.domain or ''):
+        if _is_buckler_cookie(cookie.domain):
             buckler_cookies.append(f'{cookie.name}={cookie.value}')
 
     if not buckler_cookies:
@@ -315,10 +338,9 @@ def _playwright_login(email, password):
     c.log('Playwright login: launching browser...')
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(user_agent=USER_AGENT)
-        page = context.new_page()
-
         try:
+            context = browser.new_context(locale='ja-JP')
+            page = context.new_page()
             # Navigate to Buckler login
             page.goto(
                 f'{BUCKLER_BASE}/6/buckler/ja-jp/auth/loginep?redirect_url=/',
@@ -343,14 +365,14 @@ def _playwright_login(email, password):
             page.click('button[type="submit"]')
 
             # Wait for redirect back to Buckler
-            page.wait_for_url('**/streetfighter.com/**', timeout=30000)
+            page.wait_for_url(_is_buckler_url, timeout=60000)
 
             # Extract cookies
             cookies = context.cookies()
             buckler_cookies = [
                 f"{ck['name']}={ck['value']}"
                 for ck in cookies
-                if 'streetfighter.com' in ck.get('domain', '')
+                if _is_buckler_cookie(ck.get('domain'))
             ]
 
             if not buckler_cookies:
@@ -368,6 +390,16 @@ def _playwright_login(email, password):
 
 
 def auto_login(email=None, password=None):
+    # Scheduler and Settings can request login concurrently on a small Pi.
+    if not _login_lock.acquire(blocking=False):
+        raise LoginError('ログイン処理中です。完了までお待ちください。', kind='unavailable')
+    try:
+        return _auto_login(email, password)
+    finally:
+        _login_lock.release()
+
+
+def _auto_login(email=None, password=None):
     """CAPCOM ID で自動ログインし、Cookie を取得・保存
 
     requests ベースのログインを試み、失敗時は Playwright フォールバックを使用。
@@ -401,13 +433,21 @@ def auto_login(email=None, password=None):
             raise  # 認証情報エラーはフォールバックしない
         c.log(f'Requests login failed: {req_err}, trying Playwright fallback...', exc_info=True)
         if not is_playwright_available():
-            raise Exception(
+            raise LoginError(
                 f'Requests login failed: {req_err}\n'
-                f'Playwright is not installed for fallback.\n'
-                f'Either fix the requests error above, or install Playwright:\n'
-                f'  pip install playwright && playwright install chromium'
+                'ブラウザログインが未導入です。対応イメージに更新するか、'
+                '設定のCFN Cookieを手動で更新してください。', kind='configuration',
             )
-        return _playwright_login(email, password)
+        try:
+            return _playwright_login(email, password)
+        except TwoFactorRequired:
+            raise
+        except Exception:
+            raise LoginError(
+                'ブラウザログインを完了できませんでした。追加認証やアクセス制限の可能性があります。'
+                'PCのブラウザでログインし、設定のCFN Cookieを手動更新してください。',
+                kind='auth',
+            ) from None
 
 
 def refresh_cookie():

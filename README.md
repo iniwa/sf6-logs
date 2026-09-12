@@ -158,6 +158,32 @@ services:
 
 ## Initial Configuration
 
+### 認証エラーからの復旧（Docker / Portainer）
+
+DockerイメージにはPlaywrightとChromiumを同梱します。requestsでのログインが
+失敗した場合にブラウザログインを試みます。対応するDebianベースのイメージを使い、
+`linux/amd64` / `linux/arm64` の両方で同じDockerfileを使用します。
+ブラウザ追加によりイメージサイズとログイン時のメモリ使用量は増えます。
+
+`Auth page ... 403` はパスワード送信前に認証ページが拒否された状態です。
+ブラウザでもアクセス制限や追加認証が出る場合は、Settingsの「403・自動ログイン
+失敗時の復旧手順」に従って、PCでログイン後のCookieを手動更新してください。
+Cookie更新後は認証エラーの待機を短縮し、通常90秒程度で取得を再試行します。
+取得成功までは現在のエラーを維持し、成功後も履歴は保持します。
+通信エラーや429による待機はCookie更新では解除しません。
+
+既存のPortainerコンテナにはソース変更だけでは反映されません。
+変更を含むイメージをビルド・公開した後、Portainerでそのイメージを取得して
+再デプロイします。既存のポート、再起動ポリシー、`TZ`、`/app/data` の
+永続ボリューム設定を維持してください。コンテナ内への一時的なpip installは不要です。
+反映後はSettingsの「Test Auto-Login」で結果を確認し、次の取得成功を確認します。
+Playwrightの同梱だけでCAPCOM側の403解消が保証されるわけではありません。
+
+参考: [Playwright対応環境](https://playwright.dev/python/docs/intro)、
+[ブラウザとシステム依存関係のインストール](https://playwright.dev/python/docs/browsers)。
+
+### 設定手順
+
 1. http://localhost:8510/settings にアクセス
 2. **CFN User ID** に Buckler's Boot Camp のプロフィール URL の数字 ID を入力
 3. **CFN Cookie** を設定 (ブラウザ DevTools からコピー) または **CAPCOM ID** で自動ログイン設定
