@@ -7,7 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 
 import config as c
-from services import storage, error_history
+from services import storage, error_history, failure_log
 
 class TwoFactorRequired(Exception):
     """2FA が有効なアカウントで自動ログイン不可"""
@@ -67,7 +67,11 @@ def get_session():
     return session
 
 
-def get_build_id(session=None, force_refresh=False):
+class BuildIdUnavailable(Exception):
+    """BuildID probe failed without evidence that authentication expired."""
+
+
+def get_build_id(session=None, force_refresh=False, *, raise_on_unavailable=False):
     """メインページの #__NEXT_DATA__ から BuildID を取得"""
     if not force_refresh and _build_id_cache['value']:
         return _build_id_cache['value']
@@ -98,20 +102,26 @@ def get_build_id(session=None, force_refresh=False):
                 status_code=getattr(resp, 'status_code', None),
             )
         if build_id:
+            failure_log.success('build_id')
             _build_id_cache['value'] = build_id
             c.log(f'BuildID: {build_id}')
         return build_id
 
     except requests.RequestException as e:
         error_history.record('build_id', e)
-        c.log(f'BuildID request error: {type(e).__name__}')
+        failure_log.failure('build_id', f'BuildID request error: {type(e).__name__}', exc_info=False)
+        status = e.response.status_code if e.response is not None else None
+        if raise_on_unavailable and status not in (401, 403):
+            raise BuildIdUnavailable('BuildID request temporarily unavailable') from None
         return None
     except Exception as e:
         error_history.record(
             'build_id', e, kind='parse',
             status_code=getattr(resp, 'status_code', None),
         )
-        c.log(f'BuildID fetch error: {e}', exc_info=True)
+        failure_log.failure('build_id', f'BuildID fetch error: {e}')
+        if raise_on_unavailable:
+            raise BuildIdUnavailable('BuildID response could not be parsed') from None
         return None
 
 
@@ -431,7 +441,7 @@ def _auto_login(email=None, password=None):
         )
         if invalid_credentials:
             raise  # 認証情報エラーはフォールバックしない
-        c.log(f'Requests login failed: {req_err}, trying Playwright fallback...', exc_info=True)
+        c.log('Requests login unavailable; trying Playwright fallback...')
         if not is_playwright_available():
             raise LoginError(
                 f'Requests login failed: {req_err}\n'

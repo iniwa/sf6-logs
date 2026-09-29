@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 
 import config as c
-from services import storage, cfn_auth, cfn_scraper, error_history
+from services import storage, cfn_auth, cfn_scraper, error_history, failure_log
 
 _MAX_BACKOFF = 1800  # 30 minutes
 _MIN_ERROR_INTERVAL = 90
@@ -40,6 +40,7 @@ def _try_auto_login():
     try:
         result = cfn_auth.refresh_cookie()
         if result:
+            failure_log.success('auto_login')
             resume_after_cookie_update()
             with _status_lock:
                 _status['auto_login_last'] = f'success at {c.get_now().isoformat()}'
@@ -55,7 +56,7 @@ def _try_auto_login():
         return False
     except Exception as e:
         error_history.record('auto_login', e)
-        c.log(f'Auto-login failed: {e}', exc_info=True)
+        failure_log.failure('auto_login', f'Auto-login failed: {e}')
         with _status_lock:
             _status['auto_login_last'] = f'failed: {e}'
         return False
@@ -118,6 +119,7 @@ def _record_poll_error(error, mock_mode, expected=False):
         _status['last_error'] = error_msg
         _status['error_count'] += 1
         _status['consecutive_errors'] += 1
+        consecutive_errors = _status['consecutive_errors']
         delay = _error_backoff_delay(
             normal_interval,
             _status['consecutive_errors'],
@@ -128,7 +130,8 @@ def _record_poll_error(error, mock_mode, expected=False):
             _status['auth_ok'] = False
             _status['auth_checked_at'] = now
 
-    c.log(f'Poll error: {error_msg}', exc_info=not expected)
+    failure_log.failure('poll', f'Poll error: {error_msg}',
+                        exc_info=not expected, count=consecutive_errors)
     c.log(f'Backing off: next retry in {delay}s')
 
     is_auth_error = kind == 'auth' or (
@@ -259,7 +262,14 @@ def _check_auth_job_impl():
         return
 
     session = cfn_auth.get_session()
-    build_id = cfn_auth.get_build_id(session, force_refresh=True)
+    try:
+        build_id = cfn_auth.get_build_id(
+            session, force_refresh=True, raise_on_unavailable=True,
+        )
+    except cfn_auth.BuildIdUnavailable:
+        # A transport/server failure says nothing about cookie validity.
+        # Keep cached authentication and wait for the next scheduled probe.
+        return
     ok = build_id is not None
 
     if not ok:
